@@ -1,0 +1,25 @@
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Flutter / Dart
+client/.dart_tool/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+client/build/
+client/.packages
+client/pubspec.lock
+
+# Environment & Databases
+.env
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-journal
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

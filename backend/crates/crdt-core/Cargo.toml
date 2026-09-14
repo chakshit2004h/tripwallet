@@ -1,0 +1,12 @@
+[package]
+name = "tripwallet-crdt-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+yrs = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+tripwallet-domain = { path = "../domain" }

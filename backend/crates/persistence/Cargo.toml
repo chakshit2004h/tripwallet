@@ -1,0 +1,13 @@
+[package]
+name = "tripwallet-persistence"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sqlx = { workspace = true }
+tokio = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tripwallet-domain = { path = "../domain" }

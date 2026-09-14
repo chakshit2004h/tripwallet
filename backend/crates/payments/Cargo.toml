@@ -1,0 +1,9 @@
+[package]
+name = "tripwallet-payments"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+url = { workspace = true }
+thiserror = { workspace = true }
+tripwallet-domain = { path = "../domain" }

@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/domain",
+    "crates/crdt-core",
+    "crates/persistence",
+    "crates/payments",
+    "crates/api",
+]
+
+[workspace.dependencies]
+tokio = { version = "1.38", features = ["full"] }
+axum = { version = "0.7", features = ["ws", "macros"] }
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "migrate"] }
+uuid = { version = "1.9", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "1.0"
+anyhow = "1.0"
+yrs = "0.21"
+async-trait = "0.1"
+url = "2.5"
+proptest = "1.4"
+redis = { version = "0.26", features = ["tokio-comp", "connection-manager"] }
