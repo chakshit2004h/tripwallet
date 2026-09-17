@@ -1,18 +1,22 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/sync_status_banner.dart';
+import '../../../core/db/app_database.dart';
+import '../../../core/db/database_provider.dart';
 
-class TripDashboardScreen extends StatefulWidget {
+class TripDashboardScreen extends ConsumerStatefulWidget {
   final String tripId;
 
   const TripDashboardScreen({super.key, required this.tripId});
 
   @override
-  State<TripDashboardScreen> createState() => _TripDashboardScreenState();
+  ConsumerState<TripDashboardScreen> createState() => _TripDashboardScreenState();
 }
 
-class _TripDashboardScreenState extends State<TripDashboardScreen> {
+class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
   int _activeTabIndex = 0;
 
   @override
@@ -28,6 +32,31 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Simulate Offline Expense',
+            onPressed: () async {
+              final db = ref.read(databaseProvider);
+              await db.into(db.outboundSyncQueue).insert(
+                    OutboundSyncQueueCompanion.insert(
+                      tripId: widget.tripId,
+                      crdtUpdate: Uint8List.fromList([1, 2, 3, 4]),
+                    ),
+                  );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Simulated offline mutation added to SQLite queue!',
+                      style: AppTypography.bodyMedium,
+                    ),
+                    backgroundColor: AppColors.card,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.add_shopping_cart_rounded, size: 20, color: AppColors.coral),
+          ),
           IconButton(
             onPressed: () {},
             icon: const Icon(Icons.share_outlined, size: 20),
