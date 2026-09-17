@@ -1,4 +1,4 @@
-use axum::{routing::get, Router};
+use axum::{routing::{get, post}, Router};
 use std::net::SocketAddr;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -47,6 +47,8 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(routes::health::health_check))
         .route("/ready", get(routes::health::readiness_check))
+        .route("/v1/trips/:id/sync", post(routes::sync::handle_sync))
+        .route("/v1/trips/:id/live", get(routes::ws::handle_ws_live))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 

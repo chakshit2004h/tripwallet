@@ -17,6 +17,7 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 anyhow = { workspace = true }
 redis = { workspace = true }
+base64 = "0.22"
 
 tripwallet-domain = { path = "../domain" }
 tripwallet-crdt-core = { path = "../crdt-core" }

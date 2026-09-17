@@ -11,3 +11,4 @@ chrono = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tripwallet-domain = { path = "../domain" }
+tripwallet-crdt-core = { path = "../crdt-core" }

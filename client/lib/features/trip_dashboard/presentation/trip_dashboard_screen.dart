@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/sync_status_banner.dart';
 
 class TripDashboardScreen extends StatefulWidget {
   final String tripId;
@@ -39,6 +40,7 @@ class _TripDashboardScreenState extends State<TripDashboardScreen> {
       ),
       body: Column(
         children: [
+          SyncStatusBanner(tripId: widget.tripId),
           // Stat Cards Grid
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
