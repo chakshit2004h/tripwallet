@@ -6,6 +6,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/sync_status_banner.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/database_provider.dart';
+import '../../expenses/presentation/add_expense_sheet.dart';
 
 class TripDashboardScreen extends ConsumerStatefulWidget {
   final String tripId;
@@ -117,11 +118,7 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Add expense flow (Phase 3)')),
-          );
-        },
+        onPressed: () => AddExpenseSheet.show(context, tripId: widget.tripId),
         backgroundColor: AppColors.coral,
         foregroundColor: AppColors.cream,
         icon: const Icon(Icons.add_rounded),
@@ -184,28 +181,42 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
   Widget _buildActiveTabContent() {
     switch (_activeTabIndex) {
       case 0:
-        return ListView(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          children: [
-            _buildExpenseRow(
-              title: 'Thalassa Sunset Dinner',
-              subtitle: 'Paid by Rahul · 4 people',
-              amount: '₹6,400',
-              icon: Icons.restaurant_rounded,
-            ),
-            _buildExpenseRow(
-              title: 'Airport Taxi',
-              subtitle: 'Paid by You · Split equally',
-              amount: '₹1,800',
-              icon: Icons.local_taxi_rounded,
-            ),
-            _buildExpenseRow(
-              title: 'Villa Grocery Run',
-              subtitle: 'Paid by Priya · 5 people',
-              amount: '₹3,250',
-              icon: Icons.shopping_basket_rounded,
-            ),
-          ],
+        final db = ref.watch(databaseProvider);
+        return StreamBuilder<List<LocalExpense>>(
+          stream: (db.select(db.localExpenses)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
+          builder: (context, snapshot) {
+            final localExpenses = snapshot.data ?? [];
+            return ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                ...localExpenses.map((e) => _buildExpenseRow(
+                      title: e.title,
+                      subtitle: 'Itemized split · Paid by ${e.paidByMemberId == 'm1' ? 'You' : 'Member'}',
+                      amount: '₹${(e.amountMinor / 100).toStringAsFixed(2)}',
+                      icon: Icons.receipt_long_rounded,
+                      isNew: true,
+                    )),
+                _buildExpenseRow(
+                  title: 'Thalassa Sunset Dinner',
+                  subtitle: 'Paid by Rahul · 4 people',
+                  amount: '₹6,400',
+                  icon: Icons.restaurant_rounded,
+                ),
+                _buildExpenseRow(
+                  title: 'Airport Taxi',
+                  subtitle: 'Paid by You · Split equally',
+                  amount: '₹1,800',
+                  icon: Icons.local_taxi_rounded,
+                ),
+                _buildExpenseRow(
+                  title: 'Villa Grocery Run',
+                  subtitle: 'Paid by Priya · 5 people',
+                  amount: '₹3,250',
+                  icon: Icons.shopping_basket_rounded,
+                ),
+              ],
+            );
+          },
         );
       case 1:
         return ListView(
@@ -261,6 +272,7 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
     required String subtitle,
     required String amount,
     required IconData icon,
+    bool isNew = false,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -273,17 +285,43 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: AppColors.paper,
+              color: isNew ? AppColors.green.withOpacity(0.15) : AppColors.paper,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: AppColors.creamSoft, size: 18),
+            child: Icon(
+              icon,
+              color: isNew ? AppColors.green : AppColors.creamSoft,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                Row(
+                  children: [
+                    Text(title, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                    if (isNew) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.green.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'NEW',
+                          style: AppTypography.caption.copyWith(
+                            fontSize: 9,
+                            color: AppColors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                 const SizedBox(height: 2),
                 Text(subtitle, style: AppTypography.caption),
               ],

@@ -5,6 +5,7 @@ members = [
     "crates/crdt-core",
     "crates/persistence",
     "crates/payments",
+    "crates/ocr-worker",
     "crates/api",
 ]
 
@@ -27,3 +28,4 @@ async-trait = "0.1"
 url = "2.5"
 proptest = "1.4"
 redis = { version = "0.26", features = ["tokio-comp", "connection-manager"] }
+regex = "1.10"
