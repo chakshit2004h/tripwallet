@@ -43,7 +43,7 @@ class LandingScreen extends StatelessWidget {
               // Primary CTA: Create a trip
               ElevatedButton.icon(
                 onPressed: () {
-                  context.go('/trip/demo-trip');
+                  context.go('/create-trip');
                 },
                 icon: const Icon(Icons.add_rounded, size: 20),
                 label: const Text('Create a trip'),
@@ -52,7 +52,7 @@ class LandingScreen extends StatelessWidget {
               // Secondary CTA: Join a trip
               OutlinedButton.icon(
                 onPressed: () {
-                  context.go('/trip/demo-trip');
+                  context.go('/join-trip');
                 },
                 icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
                 label: const Text('Join via invite link / QR'),

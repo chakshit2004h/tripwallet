@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/onboarding/presentation/splash_screen.dart';
+import '../../features/onboarding/presentation/welcome_screen.dart';
 import '../../features/onboarding/presentation/landing_screen.dart';
+import '../../features/onboarding/presentation/create_trip_screen.dart';
+import '../../features/onboarding/presentation/invite_share_screen.dart';
+import '../../features/onboarding/presentation/join_trip_screen.dart';
 import '../../features/trip_dashboard/presentation/trip_dashboard_screen.dart';
 
 final appRouter = GoRouter(
@@ -14,9 +18,33 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(
+      path: '/welcome',
+      builder: (BuildContext context, GoRouterState state) {
+        return const WelcomeScreen();
+      },
+    ),
+    GoRoute(
       path: '/landing',
       builder: (BuildContext context, GoRouterState state) {
         return const LandingScreen();
+      },
+    ),
+    GoRoute(
+      path: '/create-trip',
+      builder: (BuildContext context, GoRouterState state) {
+        return const CreateTripScreen();
+      },
+    ),
+    GoRoute(
+      path: '/invite',
+      builder: (BuildContext context, GoRouterState state) {
+        return const InviteShareScreen();
+      },
+    ),
+    GoRoute(
+      path: '/join-trip',
+      builder: (BuildContext context, GoRouterState state) {
+        return const JoinTripScreen();
       },
     ),
     GoRoute(

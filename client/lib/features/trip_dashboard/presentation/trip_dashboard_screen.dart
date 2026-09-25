@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/sync_status_banner.dart';
@@ -9,6 +10,9 @@ import '../../../core/db/database_provider.dart';
 import '../../../core/domain/debt_simplifier.dart';
 import '../../expenses/presentation/add_expense_sheet.dart';
 import '../../balances_settlement/presentation/settle_sheet.dart';
+import '../../itinerary/presentation/itinerary_tab_view.dart';
+import '../../paywall/presentation/paywall_modal.dart';
+import 'trip_summary_sheet.dart';
 
 class TripDashboardScreen extends ConsumerStatefulWidget {
   final String tripId;
@@ -61,12 +65,19 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
             icon: const Icon(Icons.add_shopping_cart_rounded, size: 20, color: AppColors.coral),
           ),
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.share_outlined, size: 20),
+            tooltip: 'Trip Summary & Analytics',
+            onPressed: () => TripSummarySheet.show(context),
+            icon: const Icon(Icons.bar_chart_rounded, size: 20),
           ),
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.settings_outlined, size: 20),
+            tooltip: 'TripWallet Pro',
+            onPressed: () => PaywallModal.show(context),
+            icon: const Icon(Icons.workspace_premium_rounded, size: 20, color: AppColors.amber),
+          ),
+          IconButton(
+            tooltip: 'Invite Crew',
+            onPressed: () => context.push('/invite'),
+            icon: const Icon(Icons.share_outlined, size: 20),
           ),
         ],
       ),
@@ -119,13 +130,15 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => AddExpenseSheet.show(context, tripId: widget.tripId),
-        backgroundColor: AppColors.coral,
-        foregroundColor: AppColors.cream,
-        icon: const Icon(Icons.add_rounded),
-        label: Text('Add expense', style: AppTypography.button),
-      ),
+      floatingActionButton: _activeTabIndex == 2
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => AddExpenseSheet.show(context, tripId: widget.tripId),
+              backgroundColor: AppColors.coral,
+              foregroundColor: AppColors.cream,
+              icon: const Icon(Icons.add_rounded),
+              label: Text('Add expense', style: AppTypography.button),
+            ),
     );
   }
 
@@ -512,9 +525,7 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
           },
         );
       default:
-        return Center(
-          child: Text('Itinerary (Phase 5)', style: AppTypography.bodyLarge),
-        );
+        return ItineraryTabView(tripId: widget.tripId);
     }
   }
 
