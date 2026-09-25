@@ -6,7 +6,9 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/sync_status_banner.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/database_provider.dart';
+import '../../../core/domain/debt_simplifier.dart';
 import '../../expenses/presentation/add_expense_sheet.dart';
+import '../../balances_settlement/presentation/settle_sheet.dart';
 
 class TripDashboardScreen extends ConsumerStatefulWidget {
   final String tripId;
@@ -219,46 +221,295 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
           },
         );
       case 1:
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.line),
-              ),
-              child: Row(
-                children: [
-                  const CircleAvatar(
-                    backgroundColor: AppColors.paper,
-                    child: Text('A', style: TextStyle(color: AppColors.cream)),
+        final db = ref.watch(databaseProvider);
+        return StreamBuilder<List<LocalSettlement>>(
+          stream: (db.select(db.localSettlements)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
+          builder: (context, snapshot) {
+            final settlements = snapshot.data ?? [];
+
+            // Calculate settlements impact on debts
+            // Default trip seed balances:
+            // You (m1) owe Amit (m4) ₹850
+            // Priya (m3) owes You (m1) ₹1,200
+            // Rahul (m2) owes Amit (m4) ₹600
+            final netBalances = <String, int>{
+              'm1': -85000 + 120000,
+              'm2': -60000,
+              'm3': -120000,
+              'm4': 85000 + 60000,
+            };
+
+            // Apply confirmed settlements from SQLite
+            for (final s in settlements) {
+              if (s.status == 'confirmed') {
+                netBalances[s.fromMemberId] = (netBalances[s.fromMemberId] ?? 0) + s.amountMinor;
+                netBalances[s.toMemberId] = (netBalances[s.toMemberId] ?? 0) - s.amountMinor;
+              }
+            }
+
+            final simplifiedDebts = simplifyDebts(netBalances);
+            final userBalance = netBalances['m1'] ?? 0;
+
+            final memberNames = {
+              'm1': 'You',
+              'm2': 'Rahul',
+              'm3': 'Priya',
+              'm4': 'Amit',
+            };
+
+            final memberAvatars = {
+              'm1': 'Y',
+              'm2': 'R',
+              'm3': 'P',
+              'm4': 'A',
+            };
+
+            final memberColors = {
+              'm1': AppColors.coral,
+              'm2': AppColors.teal,
+              'm3': AppColors.yellow,
+              'm4': AppColors.green,
+            };
+
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                // Net standing header card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.line),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: (userBalance >= 0 ? AppColors.green : AppColors.coral).withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          userBalance >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                          color: userBalance >= 0 ? AppColors.green : AppColors.coral,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Your Net Standing', style: AppTypography.caption),
+                            const SizedBox(height: 2),
+                            Text(
+                              userBalance > 0
+                                  ? 'You are owed ₹${(userBalance / 100).toStringAsFixed(0)} overall'
+                                  : userBalance < 0
+                                      ? 'You owe ₹${((-userBalance) / 100).toStringAsFixed(0)} overall'
+                                      : 'All settled up! 🎉',
+                              style: AppTypography.titleMedium.copyWith(
+                                color: userBalance > 0
+                                    ? AppColors.green
+                                    : userBalance < 0
+                                        ? AppColors.coral
+                                        : AppColors.cream,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Active Debts
+                Row(
+                  children: [
+                    Text('SIMPLIFIED GROUP DEBTS', style: AppTypography.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    const Spacer(),
+                    Text('Min-cash flow', style: AppTypography.caption.copyWith(color: AppColors.green, fontSize: 10)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                if (simplifiedDebts.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.paper,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.line),
+                    ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Amit owes you', style: AppTypography.bodyMedium),
-                        Text('₹850', style: AppTypography.titleMedium.copyWith(color: AppColors.green)),
+                        const Icon(Icons.check_circle_rounded, color: AppColors.green, size: 36),
+                        const SizedBox(height: 8),
+                        Text('Everyone is completely settled!', style: AppTypography.titleMedium),
+                        const SizedBox(height: 4),
+                        Text('Zero debts remaining for this trip.', style: AppTypography.caption),
                       ],
                     ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.paper,
-                      foregroundColor: AppColors.cream,
-                      minimumSize: const Size(80, 36),
-                      side: const BorderSide(color: AppColors.line),
-                    ),
-                    child: const Text('Remind'),
-                  ),
+                  )
+                else
+                  ...simplifiedDebts.map((debt) {
+                    final fromName = memberNames[debt.fromMemberId] ?? debt.fromMemberId;
+                    final toName = memberNames[debt.toMemberId] ?? debt.toMemberId;
+                    final isUserDebtor = debt.fromMemberId == 'm1';
+                    final isUserCreditor = debt.toMemberId == 'm1';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isUserDebtor ? AppColors.coral.withOpacity(0.5) : AppColors.line,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 18,
+                            backgroundColor: (memberColors[debt.fromMemberId] ?? AppColors.coral).withOpacity(0.2),
+                            child: Text(
+                              memberAvatars[debt.fromMemberId] ?? '?',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: memberColors[debt.fromMemberId] ?? AppColors.coral,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                RichText(
+                                  text: TextSpan(
+                                    style: AppTypography.bodyMedium,
+                                    children: [
+                                      TextSpan(
+                                        text: isUserDebtor ? 'You owe ' : '$fromName owes ',
+                                        style: TextStyle(fontWeight: isUserDebtor ? FontWeight.bold : FontWeight.normal),
+                                      ),
+                                      TextSpan(
+                                        text: isUserCreditor ? 'You' : toName,
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '₹${(debt.amountMinor / 100).toStringAsFixed(2)}',
+                                  style: AppTypography.titleMedium.copyWith(
+                                    color: isUserDebtor ? AppColors.coral : AppColors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isUserDebtor)
+                            ElevatedButton(
+                              onPressed: () {
+                                SettleSheet.show(
+                                  context,
+                                  tripId: widget.tripId,
+                                  fromMemberId: 'm1',
+                                  toMemberId: debt.toMemberId,
+                                  payeeName: toName,
+                                  payeeVpa: debt.toMemberId == 'm4' ? 'amit@okaxis' : '${toName.toLowerCase()}@upi',
+                                  amountMinor: debt.amountMinor,
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.coral,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: const Text('Settle', style: TextStyle(fontWeight: FontWeight.bold)),
+                            )
+                          else if (isUserCreditor)
+                            OutlinedButton(
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Payment reminder copied for $fromName: "Hey $fromName, please settle ₹${(debt.amountMinor / 100).toStringAsFixed(0)} for Goa trip!"'),
+                                    backgroundColor: AppColors.paper,
+                                  ),
+                                );
+                              },
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: AppColors.line),
+                                foregroundColor: AppColors.cream,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: const Text('Remind'),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+
+                // Past Settlements Log
+                if (settlements.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Text('SETTLEMENT HISTORY', style: AppTypography.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const SizedBox(height: 10),
+                  ...settlements.map((s) {
+                    final from = memberNames[s.fromMemberId] ?? s.fromMemberId;
+                    final to = memberNames[s.toMemberId] ?? s.toMemberId;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.paper,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.line),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_rounded, color: AppColors.green, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('$from paid $to', style: AppTypography.bodyMedium),
+                                Text('via ${s.method.toUpperCase()}', style: AppTypography.caption.copyWith(fontSize: 10)),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              color: AppColors.green.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'SETTLED',
+                              style: AppTypography.caption.copyWith(color: AppColors.green, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Text('₹${(s.amountMinor / 100).toStringAsFixed(2)}', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
+                        ],
+                      ),
+                    );
+                  }),
                 ],
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       default:
         return Center(

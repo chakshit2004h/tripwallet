@@ -2287,6 +2287,567 @@ class LocalItemClaimsCompanion extends UpdateCompanion<LocalItemClaim> {
   }
 }
 
+class $LocalSettlementsTable extends LocalSettlements
+    with TableInfo<$LocalSettlementsTable, LocalSettlement> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalSettlementsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tripIdMeta = const VerificationMeta('tripId');
+  @override
+  late final GeneratedColumn<String> tripId = GeneratedColumn<String>(
+    'trip_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fromMemberIdMeta = const VerificationMeta(
+    'fromMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> fromMemberId = GeneratedColumn<String>(
+    'from_member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _toMemberIdMeta = const VerificationMeta(
+    'toMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> toMemberId = GeneratedColumn<String>(
+    'to_member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _amountMinorMeta = const VerificationMeta(
+    'amountMinor',
+  );
+  @override
+  late final GeneratedColumn<int> amountMinor = GeneratedColumn<int>(
+    'amount_minor',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _currencyMeta = const VerificationMeta(
+    'currency',
+  );
+  @override
+  late final GeneratedColumn<String> currency = GeneratedColumn<String>(
+    'currency',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('INR'),
+  );
+  static const VerificationMeta _methodMeta = const VerificationMeta('method');
+  @override
+  late final GeneratedColumn<String> method = GeneratedColumn<String>(
+    'method',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('upi'),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('confirmed'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tripId,
+    fromMemberId,
+    toMemberId,
+    amountMinor,
+    currency,
+    method,
+    status,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_settlements';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalSettlement> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('trip_id')) {
+      context.handle(
+        _tripIdMeta,
+        tripId.isAcceptableOrUnknown(data['trip_id']!, _tripIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tripIdMeta);
+    }
+    if (data.containsKey('from_member_id')) {
+      context.handle(
+        _fromMemberIdMeta,
+        fromMemberId.isAcceptableOrUnknown(
+          data['from_member_id']!,
+          _fromMemberIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_fromMemberIdMeta);
+    }
+    if (data.containsKey('to_member_id')) {
+      context.handle(
+        _toMemberIdMeta,
+        toMemberId.isAcceptableOrUnknown(
+          data['to_member_id']!,
+          _toMemberIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_toMemberIdMeta);
+    }
+    if (data.containsKey('amount_minor')) {
+      context.handle(
+        _amountMinorMeta,
+        amountMinor.isAcceptableOrUnknown(
+          data['amount_minor']!,
+          _amountMinorMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_amountMinorMeta);
+    }
+    if (data.containsKey('currency')) {
+      context.handle(
+        _currencyMeta,
+        currency.isAcceptableOrUnknown(data['currency']!, _currencyMeta),
+      );
+    }
+    if (data.containsKey('method')) {
+      context.handle(
+        _methodMeta,
+        method.isAcceptableOrUnknown(data['method']!, _methodMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalSettlement map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalSettlement(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      tripId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trip_id'],
+      )!,
+      fromMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}from_member_id'],
+      )!,
+      toMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}to_member_id'],
+      )!,
+      amountMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}amount_minor'],
+      )!,
+      currency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}currency'],
+      )!,
+      method: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}method'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalSettlementsTable createAlias(String alias) {
+    return $LocalSettlementsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalSettlement extends DataClass implements Insertable<LocalSettlement> {
+  final String id;
+  final String tripId;
+  final String fromMemberId;
+  final String toMemberId;
+  final int amountMinor;
+  final String currency;
+  final String method;
+  final String status;
+  final DateTime createdAt;
+  const LocalSettlement({
+    required this.id,
+    required this.tripId,
+    required this.fromMemberId,
+    required this.toMemberId,
+    required this.amountMinor,
+    required this.currency,
+    required this.method,
+    required this.status,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['trip_id'] = Variable<String>(tripId);
+    map['from_member_id'] = Variable<String>(fromMemberId);
+    map['to_member_id'] = Variable<String>(toMemberId);
+    map['amount_minor'] = Variable<int>(amountMinor);
+    map['currency'] = Variable<String>(currency);
+    map['method'] = Variable<String>(method);
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  LocalSettlementsCompanion toCompanion(bool nullToAbsent) {
+    return LocalSettlementsCompanion(
+      id: Value(id),
+      tripId: Value(tripId),
+      fromMemberId: Value(fromMemberId),
+      toMemberId: Value(toMemberId),
+      amountMinor: Value(amountMinor),
+      currency: Value(currency),
+      method: Value(method),
+      status: Value(status),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory LocalSettlement.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalSettlement(
+      id: serializer.fromJson<String>(json['id']),
+      tripId: serializer.fromJson<String>(json['tripId']),
+      fromMemberId: serializer.fromJson<String>(json['fromMemberId']),
+      toMemberId: serializer.fromJson<String>(json['toMemberId']),
+      amountMinor: serializer.fromJson<int>(json['amountMinor']),
+      currency: serializer.fromJson<String>(json['currency']),
+      method: serializer.fromJson<String>(json['method']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'tripId': serializer.toJson<String>(tripId),
+      'fromMemberId': serializer.toJson<String>(fromMemberId),
+      'toMemberId': serializer.toJson<String>(toMemberId),
+      'amountMinor': serializer.toJson<int>(amountMinor),
+      'currency': serializer.toJson<String>(currency),
+      'method': serializer.toJson<String>(method),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  LocalSettlement copyWith({
+    String? id,
+    String? tripId,
+    String? fromMemberId,
+    String? toMemberId,
+    int? amountMinor,
+    String? currency,
+    String? method,
+    String? status,
+    DateTime? createdAt,
+  }) => LocalSettlement(
+    id: id ?? this.id,
+    tripId: tripId ?? this.tripId,
+    fromMemberId: fromMemberId ?? this.fromMemberId,
+    toMemberId: toMemberId ?? this.toMemberId,
+    amountMinor: amountMinor ?? this.amountMinor,
+    currency: currency ?? this.currency,
+    method: method ?? this.method,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  LocalSettlement copyWithCompanion(LocalSettlementsCompanion data) {
+    return LocalSettlement(
+      id: data.id.present ? data.id.value : this.id,
+      tripId: data.tripId.present ? data.tripId.value : this.tripId,
+      fromMemberId: data.fromMemberId.present
+          ? data.fromMemberId.value
+          : this.fromMemberId,
+      toMemberId: data.toMemberId.present
+          ? data.toMemberId.value
+          : this.toMemberId,
+      amountMinor: data.amountMinor.present
+          ? data.amountMinor.value
+          : this.amountMinor,
+      currency: data.currency.present ? data.currency.value : this.currency,
+      method: data.method.present ? data.method.value : this.method,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalSettlement(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('fromMemberId: $fromMemberId, ')
+          ..write('toMemberId: $toMemberId, ')
+          ..write('amountMinor: $amountMinor, ')
+          ..write('currency: $currency, ')
+          ..write('method: $method, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    tripId,
+    fromMemberId,
+    toMemberId,
+    amountMinor,
+    currency,
+    method,
+    status,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalSettlement &&
+          other.id == this.id &&
+          other.tripId == this.tripId &&
+          other.fromMemberId == this.fromMemberId &&
+          other.toMemberId == this.toMemberId &&
+          other.amountMinor == this.amountMinor &&
+          other.currency == this.currency &&
+          other.method == this.method &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt);
+}
+
+class LocalSettlementsCompanion extends UpdateCompanion<LocalSettlement> {
+  final Value<String> id;
+  final Value<String> tripId;
+  final Value<String> fromMemberId;
+  final Value<String> toMemberId;
+  final Value<int> amountMinor;
+  final Value<String> currency;
+  final Value<String> method;
+  final Value<String> status;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const LocalSettlementsCompanion({
+    this.id = const Value.absent(),
+    this.tripId = const Value.absent(),
+    this.fromMemberId = const Value.absent(),
+    this.toMemberId = const Value.absent(),
+    this.amountMinor = const Value.absent(),
+    this.currency = const Value.absent(),
+    this.method = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalSettlementsCompanion.insert({
+    required String id,
+    required String tripId,
+    required String fromMemberId,
+    required String toMemberId,
+    required int amountMinor,
+    this.currency = const Value.absent(),
+    this.method = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       tripId = Value(tripId),
+       fromMemberId = Value(fromMemberId),
+       toMemberId = Value(toMemberId),
+       amountMinor = Value(amountMinor);
+  static Insertable<LocalSettlement> custom({
+    Expression<String>? id,
+    Expression<String>? tripId,
+    Expression<String>? fromMemberId,
+    Expression<String>? toMemberId,
+    Expression<int>? amountMinor,
+    Expression<String>? currency,
+    Expression<String>? method,
+    Expression<String>? status,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tripId != null) 'trip_id': tripId,
+      if (fromMemberId != null) 'from_member_id': fromMemberId,
+      if (toMemberId != null) 'to_member_id': toMemberId,
+      if (amountMinor != null) 'amount_minor': amountMinor,
+      if (currency != null) 'currency': currency,
+      if (method != null) 'method': method,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalSettlementsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? tripId,
+    Value<String>? fromMemberId,
+    Value<String>? toMemberId,
+    Value<int>? amountMinor,
+    Value<String>? currency,
+    Value<String>? method,
+    Value<String>? status,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return LocalSettlementsCompanion(
+      id: id ?? this.id,
+      tripId: tripId ?? this.tripId,
+      fromMemberId: fromMemberId ?? this.fromMemberId,
+      toMemberId: toMemberId ?? this.toMemberId,
+      amountMinor: amountMinor ?? this.amountMinor,
+      currency: currency ?? this.currency,
+      method: method ?? this.method,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (tripId.present) {
+      map['trip_id'] = Variable<String>(tripId.value);
+    }
+    if (fromMemberId.present) {
+      map['from_member_id'] = Variable<String>(fromMemberId.value);
+    }
+    if (toMemberId.present) {
+      map['to_member_id'] = Variable<String>(toMemberId.value);
+    }
+    if (amountMinor.present) {
+      map['amount_minor'] = Variable<int>(amountMinor.value);
+    }
+    if (currency.present) {
+      map['currency'] = Variable<String>(currency.value);
+    }
+    if (method.present) {
+      map['method'] = Variable<String>(method.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalSettlementsCompanion(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('fromMemberId: $fromMemberId, ')
+          ..write('toMemberId: $toMemberId, ')
+          ..write('amountMinor: $amountMinor, ')
+          ..write('currency: $currency, ')
+          ..write('method: $method, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $OutboundSyncQueueTable extends OutboundSyncQueue
     with TableInfo<$OutboundSyncQueueTable, OutboundSyncQueueData> {
   @override
@@ -2651,6 +3212,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocalItemClaimsTable localItemClaims = $LocalItemClaimsTable(
     this,
   );
+  late final $LocalSettlementsTable localSettlements = $LocalSettlementsTable(
+    this,
+  );
   late final $OutboundSyncQueueTable outboundSyncQueue =
       $OutboundSyncQueueTable(this);
   @override
@@ -2663,6 +3227,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localExpenses,
     localLineItems,
     localItemClaims,
+    localSettlements,
     outboundSyncQueue,
   ];
 }
@@ -3914,6 +4479,303 @@ typedef $$LocalItemClaimsTableProcessedTableManager =
       LocalItemClaim,
       PrefetchHooks Function()
     >;
+typedef $$LocalSettlementsTableCreateCompanionBuilder =
+    LocalSettlementsCompanion Function({
+      required String id,
+      required String tripId,
+      required String fromMemberId,
+      required String toMemberId,
+      required int amountMinor,
+      Value<String> currency,
+      Value<String> method,
+      Value<String> status,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$LocalSettlementsTableUpdateCompanionBuilder =
+    LocalSettlementsCompanion Function({
+      Value<String> id,
+      Value<String> tripId,
+      Value<String> fromMemberId,
+      Value<String> toMemberId,
+      Value<int> amountMinor,
+      Value<String> currency,
+      Value<String> method,
+      Value<String> status,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$LocalSettlementsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalSettlementsTable> {
+  $$LocalSettlementsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tripId => $composableBuilder(
+    column: $table.tripId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fromMemberId => $composableBuilder(
+    column: $table.fromMemberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get toMemberId => $composableBuilder(
+    column: $table.toMemberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get currency => $composableBuilder(
+    column: $table.currency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get method => $composableBuilder(
+    column: $table.method,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalSettlementsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalSettlementsTable> {
+  $$LocalSettlementsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tripId => $composableBuilder(
+    column: $table.tripId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fromMemberId => $composableBuilder(
+    column: $table.fromMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get toMemberId => $composableBuilder(
+    column: $table.toMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get currency => $composableBuilder(
+    column: $table.currency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get method => $composableBuilder(
+    column: $table.method,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalSettlementsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalSettlementsTable> {
+  $$LocalSettlementsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get tripId =>
+      $composableBuilder(column: $table.tripId, builder: (column) => column);
+
+  GeneratedColumn<String> get fromMemberId => $composableBuilder(
+    column: $table.fromMemberId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get toMemberId => $composableBuilder(
+    column: $table.toMemberId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get currency =>
+      $composableBuilder(column: $table.currency, builder: (column) => column);
+
+  GeneratedColumn<String> get method =>
+      $composableBuilder(column: $table.method, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$LocalSettlementsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalSettlementsTable,
+          LocalSettlement,
+          $$LocalSettlementsTableFilterComposer,
+          $$LocalSettlementsTableOrderingComposer,
+          $$LocalSettlementsTableAnnotationComposer,
+          $$LocalSettlementsTableCreateCompanionBuilder,
+          $$LocalSettlementsTableUpdateCompanionBuilder,
+          (
+            LocalSettlement,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalSettlementsTable,
+              LocalSettlement
+            >,
+          ),
+          LocalSettlement,
+          PrefetchHooks Function()
+        > {
+  $$LocalSettlementsTableTableManager(
+    _$AppDatabase db,
+    $LocalSettlementsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalSettlementsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalSettlementsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalSettlementsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> tripId = const Value.absent(),
+                Value<String> fromMemberId = const Value.absent(),
+                Value<String> toMemberId = const Value.absent(),
+                Value<int> amountMinor = const Value.absent(),
+                Value<String> currency = const Value.absent(),
+                Value<String> method = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalSettlementsCompanion(
+                id: id,
+                tripId: tripId,
+                fromMemberId: fromMemberId,
+                toMemberId: toMemberId,
+                amountMinor: amountMinor,
+                currency: currency,
+                method: method,
+                status: status,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String tripId,
+                required String fromMemberId,
+                required String toMemberId,
+                required int amountMinor,
+                Value<String> currency = const Value.absent(),
+                Value<String> method = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalSettlementsCompanion.insert(
+                id: id,
+                tripId: tripId,
+                fromMemberId: fromMemberId,
+                toMemberId: toMemberId,
+                amountMinor: amountMinor,
+                currency: currency,
+                method: method,
+                status: status,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalSettlementsTable, LocalSettlement>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalSettlementsTable,
+                    LocalSettlement
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalSettlementsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalSettlementsTable,
+      LocalSettlement,
+      $$LocalSettlementsTableFilterComposer,
+      $$LocalSettlementsTableOrderingComposer,
+      $$LocalSettlementsTableAnnotationComposer,
+      $$LocalSettlementsTableCreateCompanionBuilder,
+      $$LocalSettlementsTableUpdateCompanionBuilder,
+      (
+        LocalSettlement,
+        BaseReferences<_$AppDatabase, $LocalSettlementsTable, LocalSettlement>,
+      ),
+      LocalSettlement,
+      PrefetchHooks Function()
+    >;
 typedef $$OutboundSyncQueueTableCreateCompanionBuilder =
     OutboundSyncQueueCompanion Function({
       Value<int> id,
@@ -4148,6 +5010,8 @@ class $AppDatabaseManager {
       $$LocalLineItemsTableTableManager(_db, _db.localLineItems);
   $$LocalItemClaimsTableTableManager get localItemClaims =>
       $$LocalItemClaimsTableTableManager(_db, _db.localItemClaims);
+  $$LocalSettlementsTableTableManager get localSettlements =>
+      $$LocalSettlementsTableTableManager(_db, _db.localSettlements);
   $$OutboundSyncQueueTableTableManager get outboundSyncQueue =>
       $$OutboundSyncQueueTableTableManager(_db, _db.outboundSyncQueue);
 }

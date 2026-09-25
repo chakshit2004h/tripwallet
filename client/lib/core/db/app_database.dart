@@ -79,12 +79,28 @@ class OutboundSyncQueue extends Table {
   TextColumn get status => text().withDefault(const Constant('pending'))();
 }
 
+class LocalSettlements extends Table {
+  TextColumn get id => text()();
+  TextColumn get tripId => text()();
+  TextColumn get fromMemberId => text()();
+  TextColumn get toMemberId => text()();
+  IntColumn get amountMinor => integer()();
+  TextColumn get currency => text().withDefault(const Constant('INR'))();
+  TextColumn get method => text().withDefault(const Constant('upi'))();
+  TextColumn get status => text().withDefault(const Constant('confirmed'))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(tables: [
   LocalTrips,
   LocalMembers,
   LocalExpenses,
   LocalLineItems,
   LocalItemClaims,
+  LocalSettlements,
   OutboundSyncQueue,
 ])
 class AppDatabase extends _$AppDatabase {

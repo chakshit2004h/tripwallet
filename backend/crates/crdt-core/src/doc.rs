@@ -31,6 +31,17 @@ pub struct ExpenseSummary {
     pub split_method: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SettlementSummary {
+    pub id: String,
+    pub from_member: String,
+    pub to_member: String,
+    pub amount_minor: i64,
+    pub currency: String,
+    pub method: String,
+    pub status: String,
+}
+
 /// A wrapper around a `yrs::Doc` for managing a trip's offline-first CRDT state.
 pub struct TripCrdtDoc {
     doc: Doc,
@@ -195,6 +206,76 @@ impl TripCrdtDoc {
         }
         summaries
     }
+
+    /// High-level mutation: adds a settlement and returns the resulting binary delta.
+    pub fn add_settlement(
+        &self,
+        id: &str,
+        from_member: &str,
+        to_member: &str,
+        amount_minor: i64,
+        currency: &str,
+        method: &str,
+    ) -> Result<Vec<u8>, CrdtError> {
+        let sv_before = self.state_vector();
+        {
+            let settlements_map = self.doc.get_or_insert_map("settlements");
+            let mut txn = self.doc.transact_mut();
+            let st_entry = settlements_map.insert(&mut txn, id, yrs::types::map::MapPrelim::default());
+            st_entry.insert(&mut txn, "from_member", from_member);
+            st_entry.insert(&mut txn, "to_member", to_member);
+            st_entry.insert(&mut txn, "amount_minor", amount_minor);
+            st_entry.insert(&mut txn, "currency", currency);
+            st_entry.insert(&mut txn, "method", method);
+            st_entry.insert(&mut txn, "status", "confirmed");
+        }
+        self.diff_since_state_vector(&sv_before)
+    }
+
+    /// Extracts settlement summaries from the CRDT document for relational projections.
+    pub fn get_settlements_summary(&self) -> Vec<SettlementSummary> {
+        let settlements_map = self.doc.get_or_insert_map("settlements");
+        let txn = self.doc.transact();
+        let mut summaries = Vec::new();
+
+        for (id, val) in settlements_map.iter(&txn) {
+            if let yrs::Out::YMap(m) = val {
+                let from = m.get(&txn, "from_member")
+                    .and_then(|v| match v { yrs::Out::Any(yrs::Any::String(s)) => Some(s.to_string()), _ => None })
+                    .unwrap_or_default();
+                let to = m.get(&txn, "to_member")
+                    .and_then(|v| match v { yrs::Out::Any(yrs::Any::String(s)) => Some(s.to_string()), _ => None })
+                    .unwrap_or_default();
+                let amount = m.get(&txn, "amount_minor")
+                    .and_then(|v| match v {
+                        yrs::Out::Any(yrs::Any::BigInt(b)) => Some(b),
+                        yrs::Out::Any(yrs::Any::Number(n)) => Some(n as i64),
+                        _ => None,
+                    })
+                    .unwrap_or(0);
+                let currency = m.get(&txn, "currency")
+                    .and_then(|v| match v { yrs::Out::Any(yrs::Any::String(s)) => Some(s.to_string()), _ => None })
+                    .unwrap_or_default();
+                let method = m.get(&txn, "method")
+                    .and_then(|v| match v { yrs::Out::Any(yrs::Any::String(s)) => Some(s.to_string()), _ => None })
+                    .unwrap_or_default();
+                let status = m.get(&txn, "status")
+                    .and_then(|v| match v { yrs::Out::Any(yrs::Any::String(s)) => Some(s.to_string()), _ => None })
+                    .unwrap_or_default();
+
+                summaries.push(SettlementSummary {
+                    id: id.to_string(),
+                    from_member: from,
+                    to_member: to,
+                    amount_minor: amount,
+                    currency,
+                    method,
+                    status,
+                });
+            }
+        }
+        summaries
+    }
 }
 
 #[cfg(test)]
@@ -270,5 +351,23 @@ mod tests {
             doc_server.apply_update(&diff_a_to_s).unwrap();
             prop_assert_eq!(doc_server.state_vector(), sv_server_before);
         }
+    }
+
+    #[test]
+    fn test_settlement_crdt_sync() {
+        let doc_a = TripCrdtDoc::new();
+        let doc_b = TripCrdtDoc::new();
+
+        let delta = doc_a.add_settlement("set-1", "m1", "m2", 85000, "INR", "upi").unwrap();
+        doc_b.apply_update(&delta).unwrap();
+
+        let settlements_b = doc_b.get_settlements_summary();
+        assert_eq!(settlements_b.len(), 1);
+        assert_eq!(settlements_b[0].id, "set-1");
+        assert_eq!(settlements_b[0].from_member, "m1");
+        assert_eq!(settlements_b[0].to_member, "m2");
+        assert_eq!(settlements_b[0].amount_minor, 85000);
+        assert_eq!(settlements_b[0].method, "upi");
+        assert_eq!(settlements_b[0].status, "confirmed");
     }
 }

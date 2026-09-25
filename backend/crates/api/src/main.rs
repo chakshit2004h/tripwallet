@@ -50,6 +50,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/trips/:id/sync", post(routes::sync::handle_sync))
         .route("/v1/trips/:id/live", get(routes::ws::handle_ws_live))
         .route("/v1/trips/:id/receipts/parse", post(routes::receipts::handle_parse_receipt))
+        .route("/v1/trips/:id/settlements", post(routes::settlements::record_settlement))
+        .route("/v1/trips/:id/settlements", get(routes::settlements::list_settlements))
         .layer(TraceLayer::new_for_http())
         .with_state(app_state);
 
