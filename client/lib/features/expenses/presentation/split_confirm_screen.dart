@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/database_provider.dart';
 import '../../../core/domain/proration_engine.dart';
@@ -114,8 +115,8 @@ class _SplitConfirmScreenState extends ConsumerState<SplitConfirmScreen> {
         ),
       );
 
-      // Pop back to TripDashboardScreen
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // Return to TripDashboardScreen
+      context.go('/trip/${widget.receipt.tripId}');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSaving = false);
@@ -128,7 +129,7 @@ class _SplitConfirmScreenState extends ConsumerState<SplitConfirmScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.canvas,
+      backgroundColor: AppColors.card,
       appBar: AppBar(
         title: Text('Confirm Split', style: AppTypography.titleMedium),
       ),

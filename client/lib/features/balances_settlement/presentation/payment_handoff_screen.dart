@@ -84,12 +84,12 @@ class _PaymentHandoffScreenState extends State<PaymentHandoffScreen>
     final amountFormatted = (widget.amountMinor / 100).toStringAsFixed(2);
 
     return Scaffold(
-      backgroundColor: AppColors.canvas,
+      backgroundColor: AppColors.card,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.creamSoft),
+          icon: const Icon(Icons.close_rounded, color: AppColors.inkSoft),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),

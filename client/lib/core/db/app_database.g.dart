@@ -3202,6 +3202,1012 @@ class OutboundSyncQueueCompanion
   }
 }
 
+class $LocalItineraryStopsTable extends LocalItineraryStops
+    with TableInfo<$LocalItineraryStopsTable, LocalItineraryStop> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalItineraryStopsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tripIdMeta = const VerificationMeta('tripId');
+  @override
+  late final GeneratedColumn<String> tripId = GeneratedColumn<String>(
+    'trip_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dayIndexMeta = const VerificationMeta(
+    'dayIndex',
+  );
+  @override
+  late final GeneratedColumn<int> dayIndex = GeneratedColumn<int>(
+    'day_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timeMeta = const VerificationMeta('time');
+  @override
+  late final GeneratedColumn<String> time = GeneratedColumn<String>(
+    'time',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _subtitleMeta = const VerificationMeta(
+    'subtitle',
+  );
+  @override
+  late final GeneratedColumn<String> subtitle = GeneratedColumn<String>(
+    'subtitle',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _typeMeta = const VerificationMeta('type');
+  @override
+  late final GeneratedColumn<String> type = GeneratedColumn<String>(
+    'type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bookingRefMeta = const VerificationMeta(
+    'bookingRef',
+  );
+  @override
+  late final GeneratedColumn<String> bookingRef = GeneratedColumn<String>(
+    'booking_ref',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tripId,
+    dayIndex,
+    time,
+    title,
+    subtitle,
+    type,
+    bookingRef,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_itinerary_stops';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalItineraryStop> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('trip_id')) {
+      context.handle(
+        _tripIdMeta,
+        tripId.isAcceptableOrUnknown(data['trip_id']!, _tripIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tripIdMeta);
+    }
+    if (data.containsKey('day_index')) {
+      context.handle(
+        _dayIndexMeta,
+        dayIndex.isAcceptableOrUnknown(data['day_index']!, _dayIndexMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dayIndexMeta);
+    }
+    if (data.containsKey('time')) {
+      context.handle(
+        _timeMeta,
+        time.isAcceptableOrUnknown(data['time']!, _timeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timeMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('subtitle')) {
+      context.handle(
+        _subtitleMeta,
+        subtitle.isAcceptableOrUnknown(data['subtitle']!, _subtitleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_subtitleMeta);
+    }
+    if (data.containsKey('type')) {
+      context.handle(
+        _typeMeta,
+        type.isAcceptableOrUnknown(data['type']!, _typeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_typeMeta);
+    }
+    if (data.containsKey('booking_ref')) {
+      context.handle(
+        _bookingRefMeta,
+        bookingRef.isAcceptableOrUnknown(data['booking_ref']!, _bookingRefMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalItineraryStop map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalItineraryStop(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      tripId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trip_id'],
+      )!,
+      dayIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}day_index'],
+      )!,
+      time: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}time'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      subtitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}subtitle'],
+      )!,
+      type: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}type'],
+      )!,
+      bookingRef: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}booking_ref'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalItineraryStopsTable createAlias(String alias) {
+    return $LocalItineraryStopsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalItineraryStop extends DataClass
+    implements Insertable<LocalItineraryStop> {
+  final String id;
+  final String tripId;
+  final int dayIndex;
+  final String time;
+  final String title;
+  final String subtitle;
+  final String type;
+  final String? bookingRef;
+  final DateTime createdAt;
+  const LocalItineraryStop({
+    required this.id,
+    required this.tripId,
+    required this.dayIndex,
+    required this.time,
+    required this.title,
+    required this.subtitle,
+    required this.type,
+    this.bookingRef,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['trip_id'] = Variable<String>(tripId);
+    map['day_index'] = Variable<int>(dayIndex);
+    map['time'] = Variable<String>(time);
+    map['title'] = Variable<String>(title);
+    map['subtitle'] = Variable<String>(subtitle);
+    map['type'] = Variable<String>(type);
+    if (!nullToAbsent || bookingRef != null) {
+      map['booking_ref'] = Variable<String>(bookingRef);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  LocalItineraryStopsCompanion toCompanion(bool nullToAbsent) {
+    return LocalItineraryStopsCompanion(
+      id: Value(id),
+      tripId: Value(tripId),
+      dayIndex: Value(dayIndex),
+      time: Value(time),
+      title: Value(title),
+      subtitle: Value(subtitle),
+      type: Value(type),
+      bookingRef: bookingRef == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bookingRef),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory LocalItineraryStop.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalItineraryStop(
+      id: serializer.fromJson<String>(json['id']),
+      tripId: serializer.fromJson<String>(json['tripId']),
+      dayIndex: serializer.fromJson<int>(json['dayIndex']),
+      time: serializer.fromJson<String>(json['time']),
+      title: serializer.fromJson<String>(json['title']),
+      subtitle: serializer.fromJson<String>(json['subtitle']),
+      type: serializer.fromJson<String>(json['type']),
+      bookingRef: serializer.fromJson<String?>(json['bookingRef']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'tripId': serializer.toJson<String>(tripId),
+      'dayIndex': serializer.toJson<int>(dayIndex),
+      'time': serializer.toJson<String>(time),
+      'title': serializer.toJson<String>(title),
+      'subtitle': serializer.toJson<String>(subtitle),
+      'type': serializer.toJson<String>(type),
+      'bookingRef': serializer.toJson<String?>(bookingRef),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  LocalItineraryStop copyWith({
+    String? id,
+    String? tripId,
+    int? dayIndex,
+    String? time,
+    String? title,
+    String? subtitle,
+    String? type,
+    Value<String?> bookingRef = const Value.absent(),
+    DateTime? createdAt,
+  }) => LocalItineraryStop(
+    id: id ?? this.id,
+    tripId: tripId ?? this.tripId,
+    dayIndex: dayIndex ?? this.dayIndex,
+    time: time ?? this.time,
+    title: title ?? this.title,
+    subtitle: subtitle ?? this.subtitle,
+    type: type ?? this.type,
+    bookingRef: bookingRef.present ? bookingRef.value : this.bookingRef,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  LocalItineraryStop copyWithCompanion(LocalItineraryStopsCompanion data) {
+    return LocalItineraryStop(
+      id: data.id.present ? data.id.value : this.id,
+      tripId: data.tripId.present ? data.tripId.value : this.tripId,
+      dayIndex: data.dayIndex.present ? data.dayIndex.value : this.dayIndex,
+      time: data.time.present ? data.time.value : this.time,
+      title: data.title.present ? data.title.value : this.title,
+      subtitle: data.subtitle.present ? data.subtitle.value : this.subtitle,
+      type: data.type.present ? data.type.value : this.type,
+      bookingRef: data.bookingRef.present
+          ? data.bookingRef.value
+          : this.bookingRef,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalItineraryStop(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('dayIndex: $dayIndex, ')
+          ..write('time: $time, ')
+          ..write('title: $title, ')
+          ..write('subtitle: $subtitle, ')
+          ..write('type: $type, ')
+          ..write('bookingRef: $bookingRef, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    tripId,
+    dayIndex,
+    time,
+    title,
+    subtitle,
+    type,
+    bookingRef,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalItineraryStop &&
+          other.id == this.id &&
+          other.tripId == this.tripId &&
+          other.dayIndex == this.dayIndex &&
+          other.time == this.time &&
+          other.title == this.title &&
+          other.subtitle == this.subtitle &&
+          other.type == this.type &&
+          other.bookingRef == this.bookingRef &&
+          other.createdAt == this.createdAt);
+}
+
+class LocalItineraryStopsCompanion extends UpdateCompanion<LocalItineraryStop> {
+  final Value<String> id;
+  final Value<String> tripId;
+  final Value<int> dayIndex;
+  final Value<String> time;
+  final Value<String> title;
+  final Value<String> subtitle;
+  final Value<String> type;
+  final Value<String?> bookingRef;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const LocalItineraryStopsCompanion({
+    this.id = const Value.absent(),
+    this.tripId = const Value.absent(),
+    this.dayIndex = const Value.absent(),
+    this.time = const Value.absent(),
+    this.title = const Value.absent(),
+    this.subtitle = const Value.absent(),
+    this.type = const Value.absent(),
+    this.bookingRef = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalItineraryStopsCompanion.insert({
+    required String id,
+    required String tripId,
+    required int dayIndex,
+    required String time,
+    required String title,
+    required String subtitle,
+    required String type,
+    this.bookingRef = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       tripId = Value(tripId),
+       dayIndex = Value(dayIndex),
+       time = Value(time),
+       title = Value(title),
+       subtitle = Value(subtitle),
+       type = Value(type);
+  static Insertable<LocalItineraryStop> custom({
+    Expression<String>? id,
+    Expression<String>? tripId,
+    Expression<int>? dayIndex,
+    Expression<String>? time,
+    Expression<String>? title,
+    Expression<String>? subtitle,
+    Expression<String>? type,
+    Expression<String>? bookingRef,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tripId != null) 'trip_id': tripId,
+      if (dayIndex != null) 'day_index': dayIndex,
+      if (time != null) 'time': time,
+      if (title != null) 'title': title,
+      if (subtitle != null) 'subtitle': subtitle,
+      if (type != null) 'type': type,
+      if (bookingRef != null) 'booking_ref': bookingRef,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalItineraryStopsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? tripId,
+    Value<int>? dayIndex,
+    Value<String>? time,
+    Value<String>? title,
+    Value<String>? subtitle,
+    Value<String>? type,
+    Value<String?>? bookingRef,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return LocalItineraryStopsCompanion(
+      id: id ?? this.id,
+      tripId: tripId ?? this.tripId,
+      dayIndex: dayIndex ?? this.dayIndex,
+      time: time ?? this.time,
+      title: title ?? this.title,
+      subtitle: subtitle ?? this.subtitle,
+      type: type ?? this.type,
+      bookingRef: bookingRef ?? this.bookingRef,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (tripId.present) {
+      map['trip_id'] = Variable<String>(tripId.value);
+    }
+    if (dayIndex.present) {
+      map['day_index'] = Variable<int>(dayIndex.value);
+    }
+    if (time.present) {
+      map['time'] = Variable<String>(time.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (subtitle.present) {
+      map['subtitle'] = Variable<String>(subtitle.value);
+    }
+    if (type.present) {
+      map['type'] = Variable<String>(type.value);
+    }
+    if (bookingRef.present) {
+      map['booking_ref'] = Variable<String>(bookingRef.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalItineraryStopsCompanion(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('dayIndex: $dayIndex, ')
+          ..write('time: $time, ')
+          ..write('title: $title, ')
+          ..write('subtitle: $subtitle, ')
+          ..write('type: $type, ')
+          ..write('bookingRef: $bookingRef, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalAlertsTable extends LocalAlerts
+    with TableInfo<$LocalAlertsTable, LocalAlert> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalAlertsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tripIdMeta = const VerificationMeta('tripId');
+  @override
+  late final GeneratedColumn<String> tripId = GeneratedColumn<String>(
+    'trip_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timeAgoMeta = const VerificationMeta(
+    'timeAgo',
+  );
+  @override
+  late final GeneratedColumn<String> timeAgo = GeneratedColumn<String>(
+    'time_ago',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _iconTypeMeta = const VerificationMeta(
+    'iconType',
+  );
+  @override
+  late final GeneratedColumn<String> iconType = GeneratedColumn<String>(
+    'icon_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isCoralMeta = const VerificationMeta(
+    'isCoral',
+  );
+  @override
+  late final GeneratedColumn<bool> isCoral = GeneratedColumn<bool>(
+    'is_coral',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_coral" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    tripId,
+    title,
+    timeAgo,
+    iconType,
+    isCoral,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_alerts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalAlert> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('trip_id')) {
+      context.handle(
+        _tripIdMeta,
+        tripId.isAcceptableOrUnknown(data['trip_id']!, _tripIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_tripIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('time_ago')) {
+      context.handle(
+        _timeAgoMeta,
+        timeAgo.isAcceptableOrUnknown(data['time_ago']!, _timeAgoMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timeAgoMeta);
+    }
+    if (data.containsKey('icon_type')) {
+      context.handle(
+        _iconTypeMeta,
+        iconType.isAcceptableOrUnknown(data['icon_type']!, _iconTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_iconTypeMeta);
+    }
+    if (data.containsKey('is_coral')) {
+      context.handle(
+        _isCoralMeta,
+        isCoral.isAcceptableOrUnknown(data['is_coral']!, _isCoralMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LocalAlert map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalAlert(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      tripId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trip_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      timeAgo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}time_ago'],
+      )!,
+      iconType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_type'],
+      )!,
+      isCoral: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_coral'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalAlertsTable createAlias(String alias) {
+    return $LocalAlertsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalAlert extends DataClass implements Insertable<LocalAlert> {
+  final String id;
+  final String tripId;
+  final String title;
+  final String timeAgo;
+  final String iconType;
+  final bool isCoral;
+  final DateTime createdAt;
+  const LocalAlert({
+    required this.id,
+    required this.tripId,
+    required this.title,
+    required this.timeAgo,
+    required this.iconType,
+    required this.isCoral,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['trip_id'] = Variable<String>(tripId);
+    map['title'] = Variable<String>(title);
+    map['time_ago'] = Variable<String>(timeAgo);
+    map['icon_type'] = Variable<String>(iconType);
+    map['is_coral'] = Variable<bool>(isCoral);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  LocalAlertsCompanion toCompanion(bool nullToAbsent) {
+    return LocalAlertsCompanion(
+      id: Value(id),
+      tripId: Value(tripId),
+      title: Value(title),
+      timeAgo: Value(timeAgo),
+      iconType: Value(iconType),
+      isCoral: Value(isCoral),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory LocalAlert.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalAlert(
+      id: serializer.fromJson<String>(json['id']),
+      tripId: serializer.fromJson<String>(json['tripId']),
+      title: serializer.fromJson<String>(json['title']),
+      timeAgo: serializer.fromJson<String>(json['timeAgo']),
+      iconType: serializer.fromJson<String>(json['iconType']),
+      isCoral: serializer.fromJson<bool>(json['isCoral']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'tripId': serializer.toJson<String>(tripId),
+      'title': serializer.toJson<String>(title),
+      'timeAgo': serializer.toJson<String>(timeAgo),
+      'iconType': serializer.toJson<String>(iconType),
+      'isCoral': serializer.toJson<bool>(isCoral),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  LocalAlert copyWith({
+    String? id,
+    String? tripId,
+    String? title,
+    String? timeAgo,
+    String? iconType,
+    bool? isCoral,
+    DateTime? createdAt,
+  }) => LocalAlert(
+    id: id ?? this.id,
+    tripId: tripId ?? this.tripId,
+    title: title ?? this.title,
+    timeAgo: timeAgo ?? this.timeAgo,
+    iconType: iconType ?? this.iconType,
+    isCoral: isCoral ?? this.isCoral,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  LocalAlert copyWithCompanion(LocalAlertsCompanion data) {
+    return LocalAlert(
+      id: data.id.present ? data.id.value : this.id,
+      tripId: data.tripId.present ? data.tripId.value : this.tripId,
+      title: data.title.present ? data.title.value : this.title,
+      timeAgo: data.timeAgo.present ? data.timeAgo.value : this.timeAgo,
+      iconType: data.iconType.present ? data.iconType.value : this.iconType,
+      isCoral: data.isCoral.present ? data.isCoral.value : this.isCoral,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalAlert(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('title: $title, ')
+          ..write('timeAgo: $timeAgo, ')
+          ..write('iconType: $iconType, ')
+          ..write('isCoral: $isCoral, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, tripId, title, timeAgo, iconType, isCoral, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalAlert &&
+          other.id == this.id &&
+          other.tripId == this.tripId &&
+          other.title == this.title &&
+          other.timeAgo == this.timeAgo &&
+          other.iconType == this.iconType &&
+          other.isCoral == this.isCoral &&
+          other.createdAt == this.createdAt);
+}
+
+class LocalAlertsCompanion extends UpdateCompanion<LocalAlert> {
+  final Value<String> id;
+  final Value<String> tripId;
+  final Value<String> title;
+  final Value<String> timeAgo;
+  final Value<String> iconType;
+  final Value<bool> isCoral;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const LocalAlertsCompanion({
+    this.id = const Value.absent(),
+    this.tripId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.timeAgo = const Value.absent(),
+    this.iconType = const Value.absent(),
+    this.isCoral = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalAlertsCompanion.insert({
+    required String id,
+    required String tripId,
+    required String title,
+    required String timeAgo,
+    required String iconType,
+    this.isCoral = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       tripId = Value(tripId),
+       title = Value(title),
+       timeAgo = Value(timeAgo),
+       iconType = Value(iconType);
+  static Insertable<LocalAlert> custom({
+    Expression<String>? id,
+    Expression<String>? tripId,
+    Expression<String>? title,
+    Expression<String>? timeAgo,
+    Expression<String>? iconType,
+    Expression<bool>? isCoral,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tripId != null) 'trip_id': tripId,
+      if (title != null) 'title': title,
+      if (timeAgo != null) 'time_ago': timeAgo,
+      if (iconType != null) 'icon_type': iconType,
+      if (isCoral != null) 'is_coral': isCoral,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalAlertsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? tripId,
+    Value<String>? title,
+    Value<String>? timeAgo,
+    Value<String>? iconType,
+    Value<bool>? isCoral,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return LocalAlertsCompanion(
+      id: id ?? this.id,
+      tripId: tripId ?? this.tripId,
+      title: title ?? this.title,
+      timeAgo: timeAgo ?? this.timeAgo,
+      iconType: iconType ?? this.iconType,
+      isCoral: isCoral ?? this.isCoral,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (tripId.present) {
+      map['trip_id'] = Variable<String>(tripId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (timeAgo.present) {
+      map['time_ago'] = Variable<String>(timeAgo.value);
+    }
+    if (iconType.present) {
+      map['icon_type'] = Variable<String>(iconType.value);
+    }
+    if (isCoral.present) {
+      map['is_coral'] = Variable<bool>(isCoral.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalAlertsCompanion(')
+          ..write('id: $id, ')
+          ..write('tripId: $tripId, ')
+          ..write('title: $title, ')
+          ..write('timeAgo: $timeAgo, ')
+          ..write('iconType: $iconType, ')
+          ..write('isCoral: $isCoral, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3217,6 +4223,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $OutboundSyncQueueTable outboundSyncQueue =
       $OutboundSyncQueueTable(this);
+  late final $LocalItineraryStopsTable localItineraryStops =
+      $LocalItineraryStopsTable(this);
+  late final $LocalAlertsTable localAlerts = $LocalAlertsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3229,6 +4238,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localItemClaims,
     localSettlements,
     outboundSyncQueue,
+    localItineraryStops,
+    localAlerts,
   ];
 }
 
@@ -4996,6 +6007,558 @@ typedef $$OutboundSyncQueueTableProcessedTableManager =
       OutboundSyncQueueData,
       PrefetchHooks Function()
     >;
+typedef $$LocalItineraryStopsTableCreateCompanionBuilder =
+    LocalItineraryStopsCompanion Function({
+      required String id,
+      required String tripId,
+      required int dayIndex,
+      required String time,
+      required String title,
+      required String subtitle,
+      required String type,
+      Value<String?> bookingRef,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$LocalItineraryStopsTableUpdateCompanionBuilder =
+    LocalItineraryStopsCompanion Function({
+      Value<String> id,
+      Value<String> tripId,
+      Value<int> dayIndex,
+      Value<String> time,
+      Value<String> title,
+      Value<String> subtitle,
+      Value<String> type,
+      Value<String?> bookingRef,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$LocalItineraryStopsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalItineraryStopsTable> {
+  $$LocalItineraryStopsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tripId => $composableBuilder(
+    column: $table.tripId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dayIndex => $composableBuilder(
+    column: $table.dayIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get time => $composableBuilder(
+    column: $table.time,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get subtitle => $composableBuilder(
+    column: $table.subtitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bookingRef => $composableBuilder(
+    column: $table.bookingRef,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalItineraryStopsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalItineraryStopsTable> {
+  $$LocalItineraryStopsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tripId => $composableBuilder(
+    column: $table.tripId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dayIndex => $composableBuilder(
+    column: $table.dayIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get time => $composableBuilder(
+    column: $table.time,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get subtitle => $composableBuilder(
+    column: $table.subtitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get type => $composableBuilder(
+    column: $table.type,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bookingRef => $composableBuilder(
+    column: $table.bookingRef,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalItineraryStopsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalItineraryStopsTable> {
+  $$LocalItineraryStopsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get tripId =>
+      $composableBuilder(column: $table.tripId, builder: (column) => column);
+
+  GeneratedColumn<int> get dayIndex =>
+      $composableBuilder(column: $table.dayIndex, builder: (column) => column);
+
+  GeneratedColumn<String> get time =>
+      $composableBuilder(column: $table.time, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get subtitle =>
+      $composableBuilder(column: $table.subtitle, builder: (column) => column);
+
+  GeneratedColumn<String> get type =>
+      $composableBuilder(column: $table.type, builder: (column) => column);
+
+  GeneratedColumn<String> get bookingRef => $composableBuilder(
+    column: $table.bookingRef,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$LocalItineraryStopsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalItineraryStopsTable,
+          LocalItineraryStop,
+          $$LocalItineraryStopsTableFilterComposer,
+          $$LocalItineraryStopsTableOrderingComposer,
+          $$LocalItineraryStopsTableAnnotationComposer,
+          $$LocalItineraryStopsTableCreateCompanionBuilder,
+          $$LocalItineraryStopsTableUpdateCompanionBuilder,
+          (
+            LocalItineraryStop,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalItineraryStopsTable,
+              LocalItineraryStop
+            >,
+          ),
+          LocalItineraryStop,
+          PrefetchHooks Function()
+        > {
+  $$LocalItineraryStopsTableTableManager(
+    _$AppDatabase db,
+    $LocalItineraryStopsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalItineraryStopsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalItineraryStopsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$LocalItineraryStopsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> tripId = const Value.absent(),
+                Value<int> dayIndex = const Value.absent(),
+                Value<String> time = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> subtitle = const Value.absent(),
+                Value<String> type = const Value.absent(),
+                Value<String?> bookingRef = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalItineraryStopsCompanion(
+                id: id,
+                tripId: tripId,
+                dayIndex: dayIndex,
+                time: time,
+                title: title,
+                subtitle: subtitle,
+                type: type,
+                bookingRef: bookingRef,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String tripId,
+                required int dayIndex,
+                required String time,
+                required String title,
+                required String subtitle,
+                required String type,
+                Value<String?> bookingRef = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalItineraryStopsCompanion.insert(
+                id: id,
+                tripId: tripId,
+                dayIndex: dayIndex,
+                time: time,
+                title: title,
+                subtitle: subtitle,
+                type: type,
+                bookingRef: bookingRef,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalItineraryStopsTable, LocalItineraryStop>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalItineraryStopsTable,
+                    LocalItineraryStop
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalItineraryStopsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalItineraryStopsTable,
+      LocalItineraryStop,
+      $$LocalItineraryStopsTableFilterComposer,
+      $$LocalItineraryStopsTableOrderingComposer,
+      $$LocalItineraryStopsTableAnnotationComposer,
+      $$LocalItineraryStopsTableCreateCompanionBuilder,
+      $$LocalItineraryStopsTableUpdateCompanionBuilder,
+      (
+        LocalItineraryStop,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalItineraryStopsTable,
+          LocalItineraryStop
+        >,
+      ),
+      LocalItineraryStop,
+      PrefetchHooks Function()
+    >;
+typedef $$LocalAlertsTableCreateCompanionBuilder =
+    LocalAlertsCompanion Function({
+      required String id,
+      required String tripId,
+      required String title,
+      required String timeAgo,
+      required String iconType,
+      Value<bool> isCoral,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$LocalAlertsTableUpdateCompanionBuilder =
+    LocalAlertsCompanion Function({
+      Value<String> id,
+      Value<String> tripId,
+      Value<String> title,
+      Value<String> timeAgo,
+      Value<String> iconType,
+      Value<bool> isCoral,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$LocalAlertsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalAlertsTable> {
+  $$LocalAlertsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tripId => $composableBuilder(
+    column: $table.tripId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get timeAgo => $composableBuilder(
+    column: $table.timeAgo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconType => $composableBuilder(
+    column: $table.iconType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isCoral => $composableBuilder(
+    column: $table.isCoral,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalAlertsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalAlertsTable> {
+  $$LocalAlertsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tripId => $composableBuilder(
+    column: $table.tripId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get timeAgo => $composableBuilder(
+    column: $table.timeAgo,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get iconType => $composableBuilder(
+    column: $table.iconType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isCoral => $composableBuilder(
+    column: $table.isCoral,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalAlertsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalAlertsTable> {
+  $$LocalAlertsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get tripId =>
+      $composableBuilder(column: $table.tripId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get timeAgo =>
+      $composableBuilder(column: $table.timeAgo, builder: (column) => column);
+
+  GeneratedColumn<String> get iconType =>
+      $composableBuilder(column: $table.iconType, builder: (column) => column);
+
+  GeneratedColumn<bool> get isCoral =>
+      $composableBuilder(column: $table.isCoral, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$LocalAlertsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalAlertsTable,
+          LocalAlert,
+          $$LocalAlertsTableFilterComposer,
+          $$LocalAlertsTableOrderingComposer,
+          $$LocalAlertsTableAnnotationComposer,
+          $$LocalAlertsTableCreateCompanionBuilder,
+          $$LocalAlertsTableUpdateCompanionBuilder,
+          (
+            LocalAlert,
+            BaseReferences<_$AppDatabase, $LocalAlertsTable, LocalAlert>,
+          ),
+          LocalAlert,
+          PrefetchHooks Function()
+        > {
+  $$LocalAlertsTableTableManager(_$AppDatabase db, $LocalAlertsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalAlertsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalAlertsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalAlertsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> tripId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> timeAgo = const Value.absent(),
+                Value<String> iconType = const Value.absent(),
+                Value<bool> isCoral = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalAlertsCompanion(
+                id: id,
+                tripId: tripId,
+                title: title,
+                timeAgo: timeAgo,
+                iconType: iconType,
+                isCoral: isCoral,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String tripId,
+                required String title,
+                required String timeAgo,
+                required String iconType,
+                Value<bool> isCoral = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalAlertsCompanion.insert(
+                id: id,
+                tripId: tripId,
+                title: title,
+                timeAgo: timeAgo,
+                iconType: iconType,
+                isCoral: isCoral,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalAlertsTable, LocalAlert>(table),
+                  BaseReferences<_$AppDatabase, $LocalAlertsTable, LocalAlert>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalAlertsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalAlertsTable,
+      LocalAlert,
+      $$LocalAlertsTableFilterComposer,
+      $$LocalAlertsTableOrderingComposer,
+      $$LocalAlertsTableAnnotationComposer,
+      $$LocalAlertsTableCreateCompanionBuilder,
+      $$LocalAlertsTableUpdateCompanionBuilder,
+      (
+        LocalAlert,
+        BaseReferences<_$AppDatabase, $LocalAlertsTable, LocalAlert>,
+      ),
+      LocalAlert,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5014,4 +6577,8 @@ class $AppDatabaseManager {
       $$LocalSettlementsTableTableManager(_db, _db.localSettlements);
   $$OutboundSyncQueueTableTableManager get outboundSyncQueue =>
       $$OutboundSyncQueueTableTableManager(_db, _db.outboundSyncQueue);
+  $$LocalItineraryStopsTableTableManager get localItineraryStops =>
+      $$LocalItineraryStopsTableTableManager(_db, _db.localItineraryStops);
+  $$LocalAlertsTableTableManager get localAlerts =>
+      $$LocalAlertsTableTableManager(_db, _db.localAlerts);
 }

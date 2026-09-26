@@ -1,39 +1,48 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tripwallet_client/core/db/app_database.dart';
+import 'package:tripwallet_client/core/db/database_provider.dart';
 import 'package:tripwallet_client/features/trip_dashboard/presentation/trip_summary_sheet.dart';
 import 'package:tripwallet_client/features/paywall/presentation/paywall_modal.dart';
 
 void main() {
   group('Trip Summary & Paywall Widget Tests', () {
-    testWidgets('TripSummarySheet displays metrics, spenders, and export buttons', (tester) async {
+    late AppDatabase database;
+
+    setUp(() {
+      database = AppDatabase.forTesting(NativeDatabase.memory());
+    });
+
+    tearDown(() async {
+      await database.close();
+    });
+
+    testWidgets('TripSummarySheet displays metrics and archive button', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => TripSummarySheet.show(context),
-                child: const Text('Open Summary'),
-              ),
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(database),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: TripSummarySheet(tripId: 'trip_goa'),
             ),
           ),
         ),
       );
-
-      await tester.tap(find.text('Open Summary'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Goa Weekend 2026'), findsOneWidget);
-      expect(find.text('₹34,250'), findsOneWidget);
-      expect(find.textContaining('Rahul was the top spender'), findsOneWidget);
-      expect(find.text('Export PDF'), findsOneWidget);
-      expect(find.text('Export Excel CSV'), findsOneWidget);
+      expect(find.text('Trip complete'), findsOneWidget);
+      expect(find.text('total spent across 4 people'), findsOneWidget);
+      expect(find.text('Food & drink'), findsOneWidget);
+      expect(find.text('Stay'), findsOneWidget);
+      expect(find.text('Transport'), findsOneWidget);
+      expect(find.text('Archive trip'), findsOneWidget);
 
-      // Tap Export PDF
-      await tester.ensureVisible(find.text('Export PDF'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Export PDF'));
-      await tester.pump();
-      expect(find.text('Generated Goa_Trip_2026_Summary.pdf!'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     testWidgets('PaywallModal toggles plans and activates subscription', (tester) async {
@@ -72,3 +81,4 @@ void main() {
     });
   });
 }
+

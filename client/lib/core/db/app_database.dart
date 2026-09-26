@@ -94,6 +94,34 @@ class LocalSettlements extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+class LocalItineraryStops extends Table {
+  TextColumn get id => text()();
+  TextColumn get tripId => text()();
+  IntColumn get dayIndex => integer()();
+  TextColumn get time => text()();
+  TextColumn get title => text()();
+  TextColumn get subtitle => text()();
+  TextColumn get type => text()(); // flight, hotel, food, activity
+  TextColumn get bookingRef => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class LocalAlerts extends Table {
+  TextColumn get id => text()();
+  TextColumn get tripId => text()();
+  TextColumn get title => text()();
+  TextColumn get timeAgo => text()();
+  TextColumn get iconType => text()(); // wallet, receipt, user
+  BoolColumn get isCoral => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(tables: [
   LocalTrips,
   LocalMembers,
@@ -102,6 +130,8 @@ class LocalSettlements extends Table {
   LocalItemClaims,
   LocalSettlements,
   OutboundSyncQueue,
+  LocalItineraryStops,
+  LocalAlerts,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -109,7 +139,18 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(localItineraryStops);
+            await m.createTable(localAlerts);
+          }
+        },
+      );
 }
 
 LazyDatabase _openConnection() {

@@ -19,6 +19,9 @@ void main() {
     );
 
     expect(richTextFinder, findsOneWidget);
-    expect(find.byIcon(Icons.account_balance_wallet_rounded), findsOneWidget);
+
+    // Advance timer to avoid pending timers
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pumpAndSettle();
   });
 }

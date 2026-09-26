@@ -9,72 +9,47 @@ class LandingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.ink,
+      backgroundColor: AppColors.card,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Spacer(),
-              // Icon Cluster
-              Row(
-                children: [
-                  _buildIconBadge(Icons.receipt_long_rounded),
-                  const SizedBox(width: 10),
-                  _buildIconBadge(Icons.bolt_rounded),
-                  const SizedBox(width: 10),
-                  _buildIconBadge(Icons.signal_cellular_connected_no_internet_4_bar_rounded),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // Headline
+              const SizedBox(height: 48),
               Text(
-                'Group expenses,\nsettled in one tap.',
-                style: AppTypography.display.copyWith(fontSize: 30, height: 1.2),
+                'Where to?',
+                style: AppTypography.display.copyWith(fontSize: 22),
               ),
-              const SizedBox(height: 12),
-              // Subtitle
-              Text(
-                'Split dishes by scanning receipts, track group balances offline, and settle instantly with native payment apps. No account required.',
-                style: AppTypography.bodyLarge,
-              ),
-              const Spacer(),
-              // Primary CTA: Create a trip
+              const SizedBox(height: 20),
+
+              // Button 1: Create a trip (primary)
               ElevatedButton.icon(
-                onPressed: () {
-                  context.go('/create-trip');
-                },
+                onPressed: () => context.push('/create-trip'),
                 icon: const Icon(Icons.add_rounded, size: 20),
                 label: const Text('Create a trip'),
               ),
               const SizedBox(height: 12),
-              // Secondary CTA: Join a trip
+
+              // Button 2: Join a trip (ghost)
               OutlinedButton.icon(
-                onPressed: () {
-                  context.go('/join-trip');
-                },
-                icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                label: const Text('Join via invite link / QR'),
+                onPressed: () => context.push('/join-trip'),
+                icon: const Icon(Icons.qr_code_rounded, size: 20),
+                label: const Text('Join a trip'),
               ),
-              const SizedBox(height: 16),
+
+              const SizedBox(height: 24),
+              // Quick link to browse all your trips
+              Center(
+                child: TextButton(
+                  onPressed: () => context.push('/trips'),
+                  child: Text('View Your Trips →', style: AppTypography.caption.copyWith(fontWeight: FontWeight.bold)),
+                ),
+              ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildIconBadge(IconData icon) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: AppColors.paper,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.line, width: 1.2),
-      ),
-      child: Icon(icon, color: AppColors.cream, size: 22),
     );
   }
 }

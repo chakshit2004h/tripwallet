@@ -3,48 +3,48 @@ import 'app_colors.dart';
 import 'app_typography.dart';
 
 class AppTheme {
-  static ThemeData get darkTheme {
+  static ThemeData get lightTheme {
     return ThemeData(
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: AppColors.ink,
-      primaryColor: AppColors.coral,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.coral,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: AppColors.card,
+      primaryColor: AppColors.ink,
+      colorScheme: const ColorScheme.light(
+        primary: AppColors.ink,
         surface: AppColors.card,
-        error: Colors.redAccent,
-        onPrimary: AppColors.cream,
-        onSurface: AppColors.cream,
+        error: AppColors.coralDark,
+        onPrimary: Colors.white,
+        onSurface: AppColors.inkText,
       ),
       cardColor: AppColors.card,
       dividerColor: AppColors.line,
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.ink,
+        backgroundColor: AppColors.card,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: AppTypography.titleMedium,
-        iconTheme: const IconThemeData(color: AppColors.cream),
+        iconTheme: const IconThemeData(color: AppColors.inkText),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.coral,
-          foregroundColor: AppColors.cream,
+          backgroundColor: AppColors.ink,
+          foregroundColor: Colors.white,
           elevation: 0,
           textStyle: AppTypography.button,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          minimumSize: const Size.fromHeight(44),
+          minimumSize: const Size.fromHeight(42),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.cream,
+          foregroundColor: AppColors.inkText,
           side: const BorderSide(color: AppColors.line, width: 1.4),
-          textStyle: AppTypography.button,
+          textStyle: AppTypography.button.copyWith(color: AppColors.inkText),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          minimumSize: const Size.fromHeight(44),
+          minimumSize: const Size.fromHeight(42),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -61,9 +61,12 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.coral, width: 1.4),
+          borderSide: const BorderSide(color: AppColors.ink, width: 1.4),
         ),
       ),
     );
   }
+
+  // Alias darkTheme to lightTheme for app-wide light canvas parity
+  static ThemeData get darkTheme => lightTheme;
 }

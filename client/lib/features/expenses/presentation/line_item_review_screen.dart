@@ -88,7 +88,7 @@ class _LineItemReviewScreenState extends State<LineItemReviewScreen> {
     final grandTotal = subtotal + taxVal.round() + serviceVal.round();
 
     return Scaffold(
-      backgroundColor: AppColors.canvas,
+      backgroundColor: AppColors.card,
       appBar: AppBar(
         title: Text('Review Scanned Items', style: AppTypography.titleMedium),
         actions: [

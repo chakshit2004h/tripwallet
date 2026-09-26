@@ -1,260 +1,113 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:drift/drift.dart' as drift;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/db/app_database.dart';
+import '../../../core/db/database_provider.dart';
 
-class TripSummarySheet extends StatelessWidget {
-  final String tripTitle;
-  final String dateRange;
+class TripSummarySheet extends ConsumerWidget {
+  final String tripId;
 
-  const TripSummarySheet({
-    super.key,
-    this.tripTitle = 'Goa Weekend 2026',
-    this.dateRange = '12–16 Oct 2026 · 5 members',
-  });
+  const TripSummarySheet({super.key, required this.tripId});
 
-  static Future<void> show(BuildContext context) {
+  static Future<void> show(BuildContext context, {required String tripId}) {
     return showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.paper,
+      backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => const TripSummarySheet(),
+      builder: (_) => TripSummarySheet(tripId: tripId),
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.88,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.lineHeavy,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.watch(databaseProvider);
 
-          // Header
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.bar_chart_rounded, color: AppColors.coral, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tripTitle, style: AppTypography.titleLarge),
-                    Text(dateRange, style: AppTypography.caption),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close_rounded),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+    return StreamBuilder<LocalTrip?>(
+      stream: (db.select(db.localTrips)..where((t) => t.id.equals(tripId))).watchSingleOrNull(),
+      builder: (context, tripSnapshot) {
+        final tripName = tripSnapshot.data?.name ?? 'Goa weekend';
 
-          Expanded(
-            child: SingleChildScrollView(
+        return StreamBuilder<List<LocalExpense>>(
+          stream: (db.select(db.localExpenses)..where((e) => e.tripId.equals(tripId))).watch(),
+          builder: (context, expSnapshot) {
+            final expenses = expSnapshot.data ?? [];
+            final totalMinor = expenses.fold<int>(0, (sum, e) => sum + e.amountMinor);
+            final totalSpent = totalMinor > 0 ? (totalMinor / 100).toStringAsFixed(0) : '18,400';
+
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Key Metric Banner
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.line),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('TOTAL TRIP SPENDING', style: AppTypography.caption.copyWith(fontWeight: FontWeight.bold, fontSize: 11)),
-                        const SizedBox(height: 4),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              '₹34,250',
-                              style: AppTypography.display.copyWith(fontSize: 32, color: AppColors.coral),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'across 6 items',
-                              style: AppTypography.caption.copyWith(color: AppColors.muted),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        const Divider(height: 1),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            const Icon(Icons.check_circle_rounded, color: AppColors.green, size: 16),
-                            const SizedBox(width: 6),
-                            Text(
-                              'All settlements confirmed & balanced',
-                              style: AppTypography.caption.copyWith(color: AppColors.green, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Spend Distribution
-                  Text('WHO PAID WHAT', style: AppTypography.caption.copyWith(fontWeight: FontWeight.bold, fontSize: 11)),
-                  const SizedBox(height: 10),
-
-                  _buildMemberSpendBar(name: 'Rahul', paidAmount: '₹15,400', percentage: 0.45, color: AppColors.coral),
-                  const SizedBox(height: 10),
-                  _buildMemberSpendBar(name: 'You (Chakshit)', paidAmount: '₹10,250', percentage: 0.30, color: const Color(0xFF4EA8DE)),
-                  const SizedBox(height: 10),
-                  _buildMemberSpendBar(name: 'Priya', paidAmount: '₹5,100', percentage: 0.15, color: AppColors.green),
-                  const SizedBox(height: 10),
-                  _buildMemberSpendBar(name: 'Amit', paidAmount: '₹3,500', percentage: 0.10, color: AppColors.amber),
-                  const SizedBox(height: 24),
-
-                  // Top spender badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.line),
-                    ),
-                    child: Row(
-                      children: [
-                        const Text('👑', style: TextStyle(fontSize: 20)),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Rahul was the top spender, covering 45% of the trip!',
-                            style: AppTypography.bodyMedium.copyWith(fontSize: 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Export Section
-                  Text('EXPORT & ARCHIVE', style: AppTypography.caption.copyWith(fontWeight: FontWeight.bold, fontSize: 11)),
-                  const SizedBox(height: 12),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Generated Goa_Trip_2026_Summary.pdf!', style: AppTypography.bodyMedium),
-                                backgroundColor: AppColors.card,
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.picture_as_pdf_rounded, size: 18, color: AppColors.coral),
-                          label: const Text('Export PDF'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.lineHeavy,
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Exported Goa_Trip_Expenses.csv!', style: AppTypography.bodyMedium),
-                                backgroundColor: AppColors.card,
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.table_chart_rounded, size: 18, color: AppColors.green),
-                          label: const Text('Export Excel CSV'),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
+                  const SizedBox(height: 18),
+                  Text('Trip complete', style: AppTypography.titleLarge),
+                  const SizedBox(height: 4),
+                  Text('$tripName · 12–14 sep', style: AppTypography.caption),
                   const SizedBox(height: 16),
+
+                  Text('₹$totalSpent', style: AppTypography.display.copyWith(fontSize: 32)),
+                  const SizedBox(height: 2),
+                  Text('total spent across 4 people', style: AppTypography.caption),
+                  const SizedBox(height: 24),
+
+                  // Category rows matching Step 20
+                  _buildCatRow('Food & drink', '₹9,200'),
+                  _buildCatRow('Stay', '₹6,400'),
+                  _buildCatRow('Transport', '₹2,800'),
+
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        await (db.update(db.localTrips)..where((t) => t.id.equals(tripId))).write(
+                          const LocalTripsCompanion(status: drift.Value('archived')),
+                        );
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                          context.go('/trips');
+                        }
+                      },
+                      child: const Text('Archive trip'),
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 
-  Widget _buildMemberSpendBar({
-    required String name,
-    required String paidAmount,
-    required double percentage,
-    required Color color,
-  }) {
+  Widget _buildCatRow(String category, String amount) {
     return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.paper,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.line),
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.line, width: 0.5)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(name, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-              Text(
-                '$paidAmount (${(percentage * 100).toInt()}%)',
-                style: AppTypography.caption.copyWith(color: AppColors.cream, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percentage,
-              minHeight: 6,
-              backgroundColor: AppColors.line,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
-          ),
+          Text(category, style: AppTypography.bodyMedium),
+          Text(amount, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
         ],
       ),
     );

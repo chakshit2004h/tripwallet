@@ -22,9 +22,12 @@ class MemberProfile {
 class ItemClaimScreen extends StatefulWidget {
   final ReceiptData receipt;
 
+  final List<MemberProfile>? members;
+
   const ItemClaimScreen({
     super.key,
     required this.receipt,
+    this.members,
   });
 
   @override
@@ -32,18 +35,19 @@ class ItemClaimScreen extends StatefulWidget {
 }
 
 class _ItemClaimScreenState extends State<ItemClaimScreen> {
-  final List<MemberProfile> _members = const [
-    MemberProfile(id: 'm1', name: 'You', initial: 'Y', color: AppColors.coral),
-    MemberProfile(id: 'm2', name: 'Rahul', initial: 'R', color: AppColors.teal),
-    MemberProfile(id: 'm3', name: 'Priya', initial: 'P', color: AppColors.yellow),
-    MemberProfile(id: 'm4', name: 'Amit', initial: 'A', color: AppColors.green),
-  ];
-
+  late final List<MemberProfile> _members;
   late String _selectedMemberId;
 
   @override
   void initState() {
     super.initState();
+    _members = widget.members ??
+        const [
+          MemberProfile(id: 'm_you', name: 'You', initial: 'Y', color: AppColors.green),
+          MemberProfile(id: 'm_aisha', name: 'Aisha', initial: 'A', color: AppColors.coral),
+          MemberProfile(id: 'm_rohan', name: 'Rohan', initial: 'R', color: AppColors.teal),
+          MemberProfile(id: 'm_chirag', name: 'Chirag', initial: 'C', color: AppColors.gold),
+        ];
     _selectedMemberId = _members.first.id;
 
     // By default, if no items are claimed yet, claim the first item for "You"
@@ -103,7 +107,7 @@ class _ItemClaimScreenState extends State<ItemClaimScreen> {
     final activeMemberService = currentAlloc?.serviceChargeMinor ?? 0;
 
     return Scaffold(
-      backgroundColor: AppColors.canvas,
+      backgroundColor: AppColors.card,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
