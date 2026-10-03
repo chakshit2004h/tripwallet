@@ -48,6 +48,12 @@ class AppTypography {
         color: AppColors.inkSoft,
       );
 
+  static TextStyle get labelLarge => GoogleFonts.spaceGrotesk(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: AppColors.inkText,
+      );
+
   static TextStyle get button => GoogleFonts.spaceGrotesk(
         fontSize: 13,
         fontWeight: FontWeight.w600,

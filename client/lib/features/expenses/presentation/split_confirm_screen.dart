@@ -10,6 +10,7 @@ import '../../../core/sync/sync_engine.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../domain/receipt_models.dart';
+import '../data/supabase_expenses_service.dart';
 import 'item_claim_screen.dart';
 
 class SplitConfirmScreen extends ConsumerStatefulWidget {
@@ -104,6 +105,32 @@ class _SplitConfirmScreenState extends ConsumerState<SplitConfirmScreen> {
 
       // 4. Trigger background flush
       syncEngine.flushQueue(tripId: widget.receipt.tripId);
+
+      // 5. Sync directly to Supabase cloud
+      try {
+        final expenseService = ref.read(supabaseExpensesServiceProvider);
+        final lineItemsList = widget.receipt.items.map((it) => {
+          'label': it.label,
+          'price_minor': it.priceMinor,
+          'confidence': it.confidence,
+          'claimed_by_user_ids': it.claimedMemberIds,
+        }).toList();
+
+        await expenseService.addExpense(
+          tripId: widget.receipt.tripId,
+          title: widget.receipt.title,
+          amountMinor: widget.receipt.totalMinor,
+          category: 'food',
+          currency: widget.receipt.currency,
+          paidByUserId: _payerId,
+          splitMethod: 'itemized',
+          taxMinor: widget.receipt.taxMinor,
+          serviceChargeMinor: widget.receipt.serviceChargeMinor,
+          lineItems: lineItemsList,
+        );
+      } catch (e) {
+        debugPrint('Supabase addExpense note: $e');
+      }
 
       if (!mounted) return;
 

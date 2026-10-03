@@ -7,6 +7,8 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/database_provider.dart';
 
+import '../../trips/data/supabase_trips_service.dart';
+
 class CreateTripScreen extends ConsumerStatefulWidget {
   const CreateTripScreen({super.key});
 
@@ -15,9 +17,10 @@ class CreateTripScreen extends ConsumerStatefulWidget {
 }
 
 class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
-  final TextEditingController _nameController = TextEditingController(text: 'Goa weekend');
-  final TextEditingController _datesController = TextEditingController(text: '12 sep – 14 sep');
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _datesController = TextEditingController();
   final TextEditingController _currencyController = TextEditingController(text: 'INR');
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -29,37 +32,84 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   Future<void> _createTrip() async {
     final name = _nameController.text.trim();
-    if (name.isEmpty) return;
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a trip name')),
+      );
+      return;
+    }
 
-    final db = ref.read(databaseProvider);
-    final tripId = 'trip_${DateTime.now().millisecondsSinceEpoch}';
-    final inviteCode = '9f${tripId.substring(tripId.length - 3)}';
+    setState(() => _isLoading = true);
 
-    await db.into(db.localTrips).insert(
-          LocalTripsCompanion.insert(
-            id: tripId,
-            name: name,
-            inviteCode: inviteCode,
-            startDate: drift.Value(DateTime.now()),
-            endDate: drift.Value(DateTime.now().add(const Duration(days: 3))),
-            baseCurrency: drift.Value(_currencyController.text.trim().isEmpty ? 'INR' : _currencyController.text.trim()),
-            status: const drift.Value('active'),
-          ),
-        );
+    try {
+      final supaTrips = ref.read(supabaseTripsServiceProvider);
+      final trip = await supaTrips.createTrip(
+        name: name,
+        currency: _currencyController.text.trim().isEmpty ? 'INR' : _currencyController.text.trim(),
+      );
 
-    // Insert user as member
-    await db.into(db.localMembers).insert(
-          LocalMembersCompanion.insert(
-            id: 'm_you_$tripId',
-            tripId: tripId,
-            displayName: 'You',
-            role: const drift.Value('organizer'),
-            avatarUrl: const drift.Value('YO'),
-          ),
-        );
+      // Cache locally in Drift
+      final db = ref.read(databaseProvider);
+      await db.into(db.localTrips).insertOnConflictUpdate(
+            LocalTripsCompanion.insert(
+              id: trip.id,
+              name: trip.name,
+              inviteCode: trip.inviteCode,
+              startDate: drift.Value(trip.startDate ?? DateTime.now()),
+              endDate: drift.Value(trip.endDate ?? DateTime.now().add(const Duration(days: 3))),
+              baseCurrency: drift.Value(trip.baseCurrency),
+              status: drift.Value(trip.status),
+            ),
+          );
 
-    if (mounted) {
-      context.push('/invite?tripId=$tripId&inviteCode=$inviteCode');
+      await db.into(db.localMembers).insertOnConflictUpdate(
+            LocalMembersCompanion.insert(
+              id: 'm_${trip.id}_creator',
+              tripId: trip.id,
+              displayName: 'You',
+              role: const drift.Value('organizer'),
+              avatarUrl: const drift.Value('YO'),
+            ),
+          );
+
+      if (mounted) {
+        context.push('/invite?tripId=${trip.id}&inviteCode=${trip.inviteCode}');
+      }
+    } catch (e) {
+      // Local fallback if offline
+      final db = ref.read(databaseProvider);
+      final tripId = 'trip_${DateTime.now().millisecondsSinceEpoch}';
+      final inviteCode = '9F${tripId.substring(tripId.length - 4).toUpperCase()}';
+
+      await db.into(db.localTrips).insert(
+            LocalTripsCompanion.insert(
+              id: tripId,
+              name: name,
+              inviteCode: inviteCode,
+              startDate: drift.Value(DateTime.now()),
+              endDate: drift.Value(DateTime.now().add(const Duration(days: 3))),
+              baseCurrency: drift.Value(_currencyController.text.trim().isEmpty ? 'INR' : _currencyController.text.trim()),
+              status: const drift.Value('active'),
+            ),
+          );
+
+      await db.into(db.localMembers).insert(
+            LocalMembersCompanion.insert(
+              id: 'm_you_$tripId',
+              tripId: tripId,
+              displayName: 'You',
+              role: const drift.Value('organizer'),
+              avatarUrl: const drift.Value('YO'),
+            ),
+          );
+
+      if (mounted) {
+        context.push('/invite?tripId=$tripId&inviteCode=$inviteCode');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -132,8 +182,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
               // Create trip button
               ElevatedButton(
-                onPressed: _createTrip,
-                child: const Text('Create trip'),
+                onPressed: _isLoading ? null : _createTrip,
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Create trip'),
               ),
               const SizedBox(height: 8),
             ],

@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/database_provider.dart';
+import '../../trips/data/supabase_trips_service.dart';
 
 class TripSettingsScreen extends ConsumerWidget {
   final String tripId;
@@ -52,6 +53,10 @@ class TripSettingsScreen extends ConsumerWidget {
                             await (db.update(db.localTrips)..where((t) => t.id.equals(tripId))).write(
                               const LocalTripsCompanion(status: drift.Value('archived')),
                             );
+                            try {
+                              await ref.read(supabaseTripsServiceProvider).archiveTrip(tripId);
+                            } catch (_) {}
+
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -70,6 +75,10 @@ class TripSettingsScreen extends ConsumerWidget {
                             await (db.delete(db.localTrips)..where((t) => t.id.equals(tripId))).go();
                             await (db.delete(db.localExpenses)..where((e) => e.tripId.equals(tripId))).go();
                             await (db.delete(db.localMembers)..where((m) => m.tripId.equals(tripId))).go();
+                            try {
+                              await ref.read(supabaseTripsServiceProvider).deleteTrip(tripId);
+                            } catch (_) {}
+
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

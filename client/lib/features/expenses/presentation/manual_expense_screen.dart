@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/database_provider.dart';
+import '../data/supabase_expenses_service.dart';
 
 class ManualExpenseScreen extends ConsumerStatefulWidget {
   final String tripId;
@@ -17,8 +18,8 @@ class ManualExpenseScreen extends ConsumerStatefulWidget {
 }
 
 class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
-  final TextEditingController _titleController = TextEditingController(text: 'Scooter rental');
-  final TextEditingController _amountController = TextEditingController(text: '1200');
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
   String _splitMethod = 'Equally';
   String _selectedPayerId = 'm_you';
 
@@ -51,6 +52,21 @@ class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
             splitMethod: drift.Value(_splitMethod.toLowerCase()),
           ),
         );
+
+    try {
+      final expenseService = ref.read(supabaseExpensesServiceProvider);
+      await expenseService.addExpense(
+        tripId: widget.tripId,
+        title: title,
+        amountMinor: amountMinor,
+        category: 'other',
+        currency: 'INR',
+        paidByUserId: _selectedPayerId,
+        splitMethod: _splitMethod.toLowerCase(),
+      );
+    } catch (e) {
+      debugPrint('Supabase addExpense note: $e');
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

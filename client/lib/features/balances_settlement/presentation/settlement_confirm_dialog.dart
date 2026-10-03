@@ -8,6 +8,7 @@ import '../../../core/db/database_provider.dart';
 import '../../../core/sync/sync_engine.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../expenses/data/supabase_expenses_service.dart';
 
 class SettlementConfirmDialog extends ConsumerStatefulWidget {
   final String tripId;
@@ -102,6 +103,21 @@ class _SettlementConfirmDialogState extends ConsumerState<SettlementConfirmDialo
 
       // 3. Flush queue in background
       syncEngine.flushQueue(tripId: widget.tripId);
+
+      // 4. Record to Supabase cloud
+      try {
+        final expenseService = ref.read(supabaseExpensesServiceProvider);
+        await expenseService.recordSettlement(
+          tripId: widget.tripId,
+          fromUserId: widget.fromMemberId,
+          toUserId: widget.toMemberId,
+          amountMinor: widget.amountMinor,
+          currency: 'INR',
+          method: widget.method,
+        );
+      } catch (e) {
+        debugPrint('Supabase recordSettlement note: $e');
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop(true);

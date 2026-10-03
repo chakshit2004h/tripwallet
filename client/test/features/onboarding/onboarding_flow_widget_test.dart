@@ -75,14 +75,14 @@ void main() {
         ),
       );
 
-      expect(find.text("Goa weekend"), findsOneWidget);
-      expect(find.text('Your name'), findsOneWidget);
-      expect(find.text('Pick an avatar'), findsOneWidget);
+      expect(find.text('Trip invite code'), findsOneWidget);
+      expect(find.text('Your name in this trip'), findsOneWidget);
+      expect(find.text('Pick an avatar badge'), findsOneWidget);
       expect(find.text('CH'), findsOneWidget);
       expect(find.widgetWithText(ElevatedButton, 'Join trip'), findsOneWidget);
 
-      // Enter custom name
-      await tester.enterText(find.byType(TextField), 'Alex');
+      // Enter custom name in the second TextField (Name)
+      await tester.enterText(find.byType(TextField).last, 'Alex');
       await tester.pump();
       expect(find.text('Alex'), findsOneWidget);
     });

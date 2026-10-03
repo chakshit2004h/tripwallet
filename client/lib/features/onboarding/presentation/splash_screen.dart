@@ -4,8 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/db/database_provider.dart';
-import '../../../core/db/database_seeder.dart';
+import '../../../core/auth/supabase_auth_service.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -24,12 +23,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 
   Future<void> _initializeAndNavigate() async {
-    // Seed initial demo data matching prototype if empty
-    final db = ref.read(databaseProvider);
-    await DatabaseSeeder.seedIfEmpty(db);
-
     _timer = Timer(const Duration(milliseconds: 1400), () {
-      if (mounted) {
+      if (!mounted) return;
+      final auth = ref.read(supabaseAuthServiceProvider);
+      if (auth.isAuthenticated) {
+        context.go('/trips');
+      } else {
         context.go('/welcome');
       }
     });

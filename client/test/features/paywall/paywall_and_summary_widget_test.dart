@@ -20,6 +20,28 @@ void main() {
     });
 
     testWidgets('TripSummarySheet displays metrics and archive button', (tester) async {
+      await database.into(database.localMembers).insert(
+        LocalMembersCompanion.insert(id: 'm1', tripId: 'trip_goa', displayName: 'You'),
+      );
+      await database.into(database.localMembers).insert(
+        LocalMembersCompanion.insert(id: 'm2', tripId: 'trip_goa', displayName: 'Aisha'),
+      );
+      await database.into(database.localMembers).insert(
+        LocalMembersCompanion.insert(id: 'm3', tripId: 'trip_goa', displayName: 'Rohan'),
+      );
+      await database.into(database.localMembers).insert(
+        LocalMembersCompanion.insert(id: 'm4', tripId: 'trip_goa', displayName: 'Chirag'),
+      );
+      await database.into(database.localExpenses).insert(
+        LocalExpensesCompanion.insert(id: 'e1', tripId: 'trip_goa', title: 'Dinner food', amountMinor: 920000, currency: 'INR', paidByMemberId: 'm1'),
+      );
+      await database.into(database.localExpenses).insert(
+        LocalExpensesCompanion.insert(id: 'e2', tripId: 'trip_goa', title: 'Hotel stay', amountMinor: 640000, currency: 'INR', paidByMemberId: 'm1'),
+      );
+      await database.into(database.localExpenses).insert(
+        LocalExpensesCompanion.insert(id: 'e3', tripId: 'trip_goa', title: 'Cab transport', amountMinor: 280000, currency: 'INR', paidByMemberId: 'm1'),
+      );
+
       await tester.pumpWidget(
         ProviderScope(
           overrides: [

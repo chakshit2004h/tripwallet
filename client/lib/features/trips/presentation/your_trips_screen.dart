@@ -1,17 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:drift/drift.dart' as drift;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/database_provider.dart';
+import '../data/supabase_trips_service.dart';
 import 'trip_empty_state.dart';
 
-class YourTripsScreen extends ConsumerWidget {
+class YourTripsScreen extends ConsumerStatefulWidget {
   const YourTripsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<YourTripsScreen> createState() => _YourTripsScreenState();
+}
+
+class _YourTripsScreenState extends ConsumerState<YourTripsScreen> {
+  bool _isRefreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchTripsFromCloud();
+    });
+  }
+
+  Future<void> _fetchTripsFromCloud() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+
+    try {
+      final supaTrips = await ref.read(supabaseTripsServiceProvider).fetchUserTrips();
+      final db = ref.read(databaseProvider);
+
+      for (final trip in supaTrips) {
+        await db.into(db.localTrips).insertOnConflictUpdate(
+              LocalTripsCompanion(
+                id: drift.Value(trip.id),
+                name: drift.Value(trip.name),
+                inviteCode: drift.Value(trip.inviteCode),
+                startDate: drift.Value(trip.startDate),
+                endDate: drift.Value(trip.endDate),
+                baseCurrency: drift.Value(trip.baseCurrency),
+                status: drift.Value(trip.status),
+              ),
+            );
+      }
+    } catch (e) {
+      debugPrint('Cloud trips fetch note: $e');
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final db = ref.watch(databaseProvider);
 
     return Scaffold(
@@ -22,6 +67,18 @@ class YourTripsScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
+        actions: [
+          IconButton(
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.coral),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 20),
+            onPressed: _fetchTripsFromCloud,
+          ),
+        ],
       ),
       body: StreamBuilder<List<LocalTrip>>(
         stream: db.select(db.localTrips).watch(),
@@ -34,101 +91,105 @@ class YourTripsScreen extends ConsumerWidget {
           final activeCount = trips.where((t) => t.status == 'active').length;
           final archivedCount = trips.where((t) => t.status == 'archived').length;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: Text(
-                  '$activeCount active · $archivedCount archived',
-                  style: AppTypography.caption,
+          return RefreshIndicator(
+            onRefresh: _fetchTripsFromCloud,
+            color: AppColors.coral,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Text(
+                    '$activeCount active · $archivedCount archived',
+                    style: AppTypography.caption,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: trips.length,
-                  itemBuilder: (context, index) {
-                    final trip = trips[index];
-                    final isActive = trip.status == 'active';
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: trips.length,
+                    itemBuilder: (context, index) {
+                      final trip = trips[index];
+                      final isActive = trip.status == 'active';
 
-                    return InkWell(
-                      onTap: () => context.go('/trip/${trip.id}'),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.paper,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.line, width: 0.8),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: isActive ? AppColors.ink : AppColors.line,
-                                borderRadius: BorderRadius.circular(11),
-                              ),
-                              child: Icon(
-                                Icons.flight_takeoff_rounded,
-                                color: isActive ? AppColors.cream : AppColors.inkSoft,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(trip.name, style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${trip.baseCurrency} · ${trip.inviteCode}',
-                                    style: AppTypography.caption,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: isActive ? const Color(0xFFE1F5EE) : AppColors.line,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                isActive ? 'Active' : 'Archived',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: isActive ? AppColors.green : AppColors.inkSoft,
+                      return InkWell(
+                        onTap: () => context.go('/trip/${trip.id}'),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.paper,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.line, width: 0.8),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: isActive ? AppColors.ink : AppColors.line,
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                child: Icon(
+                                  Icons.flight_takeoff_rounded,
+                                  color: isActive ? AppColors.cream : AppColors.inkSoft,
+                                  size: 22,
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(trip.name, style: AppTypography.titleMedium.copyWith(fontSize: 14)),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${trip.baseCurrency} · ${trip.inviteCode}',
+                                      style: AppTypography.caption,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isActive ? const Color(0xFFE1F5EE) : AppColors.line,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  isActive ? 'Active' : 'Archived',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: isActive ? AppColors.green : AppColors.inkSoft,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              // Bottom Coral CTA Button
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: ElevatedButton.icon(
-                  onPressed: () => context.push('/create-trip'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.coral,
-                    foregroundColor: Colors.white,
+                      );
+                    },
                   ),
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  label: const Text('Create a trip', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
-              ),
-            ],
+                // Bottom Coral CTA Button
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: ElevatedButton.icon(
+                    onPressed: () => context.push('/create-trip'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.coral,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    label: const Text('Create a trip', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
           );
         },
       ),

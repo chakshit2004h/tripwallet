@@ -15,10 +15,20 @@ import '../../features/alerts/presentation/alerts_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/expenses/presentation/manual_expense_screen.dart';
 import '../../features/expenses/presentation/expense_detail_screen.dart';
+import '../../features/auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/register_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
+    GoRoute(
+      path: '/login',
+      builder: (BuildContext context, GoRouterState state) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/register',
+      builder: (BuildContext context, GoRouterState state) => const RegisterScreen(),
+    ),
     GoRoute(
       path: '/',
       builder: (BuildContext context, GoRouterState state) => const SplashScreen(),

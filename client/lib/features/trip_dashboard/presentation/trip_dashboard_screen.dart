@@ -1,17 +1,21 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/auth/supabase_auth_service.dart';
+import '../../../core/db/app_database.dart';
+import '../../../core/db/database_provider.dart';
+import '../../../core/domain/debt_simplifier.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/sync_status_banner.dart';
 import '../../../core/widgets/trip_wallet_bottom_nav_bar.dart';
-import '../../../core/db/app_database.dart';
-import '../../../core/db/database_provider.dart';
-import '../../../core/domain/debt_simplifier.dart';
-import '../../expenses/presentation/add_expense_sheet.dart';
 import '../../balances_settlement/presentation/settle_sheet.dart';
+import '../../expenses/data/supabase_expenses_service.dart';
+import '../../expenses/presentation/add_expense_sheet.dart';
 import '../../itinerary/presentation/itinerary_tab_view.dart';
 import '../../paywall/presentation/pass_active_screen.dart';
+import '../../trips/data/supabase_trips_service.dart';
 import 'trip_summary_sheet.dart';
 
 class TripDashboardScreen extends ConsumerStatefulWidget {
@@ -25,23 +29,112 @@ class TripDashboardScreen extends ConsumerStatefulWidget {
 
 class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
   int _activeTabIndex = 0; // 0: Expenses, 1: Balances, 2: Itinerary, 3: Pass
+  bool _isSyncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncTripData();
+    });
+  }
+
+  Future<void> _syncTripData() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+
+    try {
+      final tripsService = ref.read(supabaseTripsServiceProvider);
+      final expensesService = ref.read(supabaseExpensesServiceProvider);
+      final db = ref.read(databaseProvider);
+
+      // 1. Members
+      final members = await tripsService.fetchTripMembers(widget.tripId);
+      for (final m in members) {
+        await db.into(db.localMembers).insertOnConflictUpdate(
+              LocalMembersCompanion(
+                id: drift.Value(m.id),
+                tripId: drift.Value(m.tripId),
+                displayName: drift.Value(m.displayName),
+                role: drift.Value(m.role),
+              ),
+            );
+      }
+
+      // 2. Expenses
+      final expenses = await expensesService.fetchExpenses(widget.tripId);
+      for (final e in expenses) {
+        await db.into(db.localExpenses).insertOnConflictUpdate(
+              LocalExpensesCompanion(
+                id: drift.Value(e.id),
+                tripId: drift.Value(e.tripId),
+                title: drift.Value(e.title),
+                amountMinor: drift.Value(e.amountMinor),
+                currency: drift.Value(e.currency),
+                paidByMemberId: drift.Value(e.paidByUserId),
+                splitMethod: drift.Value(e.splitMethod),
+                taxMinor: drift.Value(e.taxMinor),
+                serviceChargeMinor: drift.Value(e.serviceChargeMinor),
+                createdAt: drift.Value(e.createdAt),
+              ),
+            );
+      }
+
+      // 3. Settlements
+      final settlements = await expensesService.fetchSettlements(widget.tripId);
+      for (final s in settlements) {
+        await db.into(db.localSettlements).insertOnConflictUpdate(
+              LocalSettlementsCompanion(
+                id: drift.Value(s.id),
+                tripId: drift.Value(s.tripId),
+                fromMemberId: drift.Value(s.fromUserId),
+                toMemberId: drift.Value(s.toUserId),
+                amountMinor: drift.Value(s.amountMinor),
+                currency: drift.Value(s.currency),
+                method: drift.Value(s.method),
+                status: drift.Value(s.status),
+                createdAt: drift.Value(s.createdAt),
+              ),
+            );
+      }
+    } catch (e) {
+      debugPrint('Trip data sync note: $e');
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
+  }
+
+  String _formatDates(DateTime? start, DateTime? end) {
+    if (start == null || end == null) return 'Active trip';
+    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    if (start.month == end.month) {
+      return '${start.day}–${end.day} ${months[start.month - 1]}';
+    }
+    return '${start.day} ${months[start.month - 1]} – ${end.day} ${months[end.month - 1]}';
+  }
 
   @override
   Widget build(BuildContext context) {
     final db = ref.watch(databaseProvider);
+    final auth = ref.watch(supabaseAuthServiceProvider);
+
+    final displayName = auth.currentDisplayName.trim();
+    final initials = displayName.isNotEmpty
+        ? displayName.split(' ').map((n) => n.isNotEmpty ? n[0].toUpperCase() : '').take(2).join()
+        : 'ME';
 
     return StreamBuilder<LocalTrip?>(
       stream: (db.select(db.localTrips)..where((t) => t.id.equals(widget.tripId))).watchSingleOrNull(),
       builder: (context, tripSnapshot) {
         final trip = tripSnapshot.data;
-        final tripTitle = trip?.name ?? 'Goa weekend';
-        final tripDates = '12–14 sep';
+        final tripTitle = trip?.name ?? 'Trip';
+        final tripDates = _formatDates(trip?.startDate, trip?.endDate);
 
         return StreamBuilder<List<LocalMember>>(
           stream: (db.select(db.localMembers)..where((m) => m.tripId.equals(widget.tripId))).watch(),
           builder: (context, memberSnapshot) {
             final members = memberSnapshot.data ?? [];
-            final memberCount = members.length > 0 ? members.length : 4;
+            final memberCount = members.isNotEmpty ? members.length : 1;
 
             return Scaffold(
               backgroundColor: AppColors.card,
@@ -67,7 +160,7 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
                         InkWell(
                           onTap: () => context.push('/trip/${widget.tripId}/members'),
                           child: Text(
-                            '$memberCount members · $tripDates',
+                            '$memberCount member${memberCount == 1 ? '' : 's'} · $tripDates',
                             style: AppTypography.caption,
                           ),
                         ),
@@ -76,25 +169,37 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
                   ),
                 ),
                 actions: [
-                  // 🔔 Alerts Icon
+                  // Refresh indicator
+                  IconButton(
+                    tooltip: 'Sync with cloud',
+                    icon: _isSyncing
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.coral),
+                          )
+                        : const Icon(Icons.sync_rounded, size: 20),
+                    onPressed: _syncTripData,
+                  ),
+                  // Alerts Icon
                   IconButton(
                     tooltip: 'Alerts',
                     icon: const Icon(Icons.notifications_none_rounded, size: 22),
                     onPressed: () => context.push('/alerts'),
                   ),
-                  // 📊 Summary Icon
+                  // Summary Icon
                   IconButton(
                     tooltip: 'Trip Summary',
                     icon: const Icon(Icons.bar_chart_rounded, size: 22),
                     onPressed: () => TripSummarySheet.show(context, tripId: widget.tripId),
                   ),
-                  // ⚙️ Settings Icon
+                  // Settings Icon
                   IconButton(
                     tooltip: 'Trip Settings',
                     icon: const Icon(Icons.settings_outlined, size: 20),
                     onPressed: () => context.push('/trip/${widget.tripId}/settings'),
                   ),
-                  // 👤 Profile Avatar
+                  // Profile Avatar
                   Padding(
                     padding: const EdgeInsets.only(right: 12, left: 4),
                     child: GestureDetector(
@@ -108,8 +213,8 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
                         ),
                         child: Center(
                           child: Text(
-                            'CH',
-                            style: TextStyle(
+                            initials,
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               color: AppColors.coral,
@@ -125,7 +230,7 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
                 children: [
                   SyncStatusBanner(tripId: widget.tripId),
                   Expanded(
-                    child: _buildActiveContent(members),
+                    child: _buildActiveContent(members, tripTitle),
                   ),
                 ],
               ),
@@ -141,7 +246,7 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
     );
   }
 
-  Widget _buildActiveContent(List<LocalMember> members) {
+  Widget _buildActiveContent(List<LocalMember> members, String tripName) {
     switch (_activeTabIndex) {
       case 0:
         return _buildExpensesTab(members);
@@ -151,12 +256,13 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
         return ItineraryTabView(tripId: widget.tripId);
       case 3:
       default:
-        return PassActiveScreen(tripName: 'Goa weekend');
+        return PassActiveScreen(tripName: tripName);
     }
   }
 
   Widget _buildExpensesTab(List<LocalMember> members) {
     final db = ref.watch(databaseProvider);
+    final auth = ref.watch(supabaseAuthServiceProvider);
 
     return StreamBuilder<List<LocalExpense>>(
       stream: (db.select(db.localExpenses)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
@@ -164,151 +270,184 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
         final expenses = snapshot.data ?? [];
         final totalMinor = expenses.fold<int>(0, (sum, e) => sum + e.amountMinor);
 
-        // Compute current user's balance
         return StreamBuilder<List<LocalSettlement>>(
           stream: (db.select(db.localSettlements)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
           builder: (context, settlementSnapshot) {
             final settlements = settlementSnapshot.data ?? [];
-            final youMemberId = members.firstWhere((m) => m.displayName.toLowerCase() == 'you', orElse: () => members.isNotEmpty ? members.first : const LocalMember(id: 'm_you', tripId: '', displayName: 'You', role: 'member')).id;
+
+            // Find current user's local member representation
+            final currentUserId = auth.currentUser?.id;
+            final youMember = members.firstWhere(
+              (m) =>
+                  (currentUserId != null && m.id == currentUserId) ||
+                  m.displayName.toLowerCase() == 'you' ||
+                  m.displayName.toLowerCase() == auth.currentDisplayName.toLowerCase(),
+              orElse: () => members.isNotEmpty ? members.first : const LocalMember(id: 'me', tripId: '', displayName: 'You', role: 'member'),
+            );
+            final youMemberId = youMember.id;
 
             var youBalanceMinor = 0;
             if (expenses.isNotEmpty) {
-              final memberCount = members.isNotEmpty ? members.length : 4;
+              final memberCount = members.isNotEmpty ? members.length : 1;
               for (final e in expenses) {
+                final share = e.amountMinor ~/ memberCount;
                 if (e.paidByMemberId == youMemberId) {
-                  youBalanceMinor += e.amountMinor - (e.amountMinor ~/ memberCount);
+                  youBalanceMinor += (e.amountMinor - share);
                 } else {
-                  youBalanceMinor -= (e.amountMinor ~/ memberCount);
+                  youBalanceMinor -= share;
                 }
               }
               for (final s in settlements) {
-                if (s.fromMemberId == youMemberId) youBalanceMinor += s.amountMinor;
-                if (s.toMemberId == youMemberId) youBalanceMinor -= s.amountMinor;
+                if (s.status == 'confirmed') {
+                  if (s.fromMemberId == youMemberId) youBalanceMinor += s.amountMinor;
+                  if (s.toMemberId == youMemberId) youBalanceMinor -= s.amountMinor;
+                }
               }
-            } else {
-              youBalanceMinor = 145000; // Default ₹1,450
             }
 
-            final totalSpentFormatted = '₹${(totalMinor > 0 ? totalMinor / 100 : 18400).toStringAsFixed(0)}';
+            final totalSpentFormatted = '₹${(totalMinor / 100).toStringAsFixed(0)}';
             final youOwedFormatted = youBalanceMinor >= 0
                 ? '₹${(youBalanceMinor / 100).toStringAsFixed(0)}'
                 : '-₹${((-youBalanceMinor) / 100).toStringAsFixed(0)}';
 
-            return ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                // Top Tab Bar Pills (matching Step 7: Expenses | Balances | Itinerary)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      _buildTabPill('Expenses', 0),
-                      const SizedBox(width: 8),
-                      _buildTabPill('Balances', 1),
-                      const SizedBox(width: 8),
-                      _buildTabPill('Itinerary', 2),
-                    ],
-                  ),
-                ),
-
-                // Stat Cards Grid
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildStatCard(
-                          title: 'Total spent',
-                          value: totalSpentFormatted,
-                          valueColor: AppColors.inkText,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildStatCard(
-                          title: youBalanceMinor >= 0 ? "You're owed" : 'You owe',
-                          value: youOwedFormatted,
-                          valueColor: youBalanceMinor >= 0 ? AppColors.green : AppColors.coral,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // RECENT label
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    'RECENT',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.inkSoft,
-                      letterSpacing: 0.05,
-                    ),
-                  ),
-                ),
-
-                // Expense Rows
-                if (expenses.isEmpty)
+            return RefreshIndicator(
+              onRefresh: _syncTripData,
+              color: AppColors.coral,
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  // Top Tab Bar Pills (Expenses | Balances | Itinerary)
                   Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
-                      child: Text('No expenses logged yet.', style: AppTypography.bodySmall),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        _buildTabPill('Expenses', 0),
+                        const SizedBox(width: 8),
+                        _buildTabPill('Balances', 1),
+                        const SizedBox(width: 8),
+                        _buildTabPill('Itinerary', 2),
+                      ],
                     ),
-                  )
-                else
-                  ...expenses.map((e) {
-                    final payer = members.firstWhere((m) => m.id == e.paidByMemberId, orElse: () => LocalMember(id: '', tripId: '', displayName: e.paidByMemberId == 'm_you' ? 'You' : 'Aisha', role: 'member')).displayName;
+                  ),
 
-                    IconData icon = Icons.restaurant_rounded;
-                    if (e.title.toLowerCase().contains('cab') || e.title.toLowerCase().contains('taxi')) {
-                      icon = Icons.directions_car_rounded;
-                    } else if (e.title.toLowerCase().contains('scooter') || e.title.toLowerCase().contains('bike')) {
-                      icon = Icons.two_wheeler_rounded;
-                    } else if (e.title.toLowerCase().contains('hotel') || e.title.toLowerCase().contains('resort')) {
-                      icon = Icons.hotel_rounded;
-                    }
-
-                    return InkWell(
-                      onTap: () => context.push('/expense/${e.id}'),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: const BoxDecoration(
-                          border: Border(bottom: BorderSide(color: AppColors.line, width: 0.5)),
+                  // Stat Cards Grid
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            title: 'Total spent',
+                            value: totalSpentFormatted,
+                            valueColor: AppColors.inkText,
+                          ),
                         ),
-                        child: Row(
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildStatCard(
+                            title: youBalanceMinor >= 0 ? "You're owed" : 'You owe',
+                            value: youOwedFormatted,
+                            valueColor: youBalanceMinor >= 0 ? AppColors.green : AppColors.coral,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // RECENT label
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      'RECENT',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.inkSoft,
+                        letterSpacing: 0.05,
+                      ),
+                    ),
+                  ),
+
+                  // Expense Rows
+                  if (expenses.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                      child: Center(
+                        child: Column(
                           children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: AppColors.paper,
-                                borderRadius: BorderRadius.circular(9),
-                              ),
-                              child: Icon(icon, color: AppColors.inkSoft, size: 16),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(e.title, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 2),
-                                  Text('$payer · split ${e.splitMethod}', style: AppTypography.caption),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              '₹${(e.amountMinor / 100).toStringAsFixed(0)}',
-                              style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w700),
-                            ),
+                            const Icon(Icons.receipt_long_outlined, size: 40, color: AppColors.inkSoft),
+                            const SizedBox(height: 12),
+                            Text('No expenses logged yet.', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
+                            const SizedBox(height: 4),
+                            Text('Tap + Scan bill below to log your first expense.', style: AppTypography.bodySmall, textAlign: TextAlign.center),
                           ],
                         ),
                       ),
-                    );
-                  }),
-              ],
+                    )
+                  else
+                    ...expenses.map((e) {
+                      final payerMember = members.firstWhere(
+                        (m) => m.id == e.paidByMemberId,
+                        orElse: () => LocalMember(
+                          id: e.paidByMemberId,
+                          tripId: widget.tripId,
+                          displayName: e.paidByMemberId == youMemberId ? 'You' : 'Member',
+                          role: 'member',
+                        ),
+                      );
+
+                      IconData icon = Icons.restaurant_rounded;
+                      final titleLower = e.title.toLowerCase();
+                      if (titleLower.contains('cab') || titleLower.contains('taxi') || titleLower.contains('uber')) {
+                        icon = Icons.directions_car_rounded;
+                      } else if (titleLower.contains('scooter') || titleLower.contains('bike') || titleLower.contains('fuel')) {
+                        icon = Icons.two_wheeler_rounded;
+                      } else if (titleLower.contains('hotel') || titleLower.contains('resort') || titleLower.contains('stay')) {
+                        icon = Icons.hotel_rounded;
+                      } else if (titleLower.contains('flight') || titleLower.contains('train')) {
+                        icon = Icons.flight_takeoff_rounded;
+                      }
+
+                      return InkWell(
+                        onTap: () => context.push('/expense/${e.id}'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: const BoxDecoration(
+                            border: Border(bottom: BorderSide(color: AppColors.line, width: 0.5)),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: AppColors.paper,
+                                  borderRadius: BorderRadius.circular(9),
+                                ),
+                                child: Icon(icon, color: AppColors.inkSoft, size: 16),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(e.title, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 2),
+                                    Text('${payerMember.displayName} · split ${e.splitMethod}', style: AppTypography.caption),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                '₹${(e.amountMinor / 100).toStringAsFixed(0)}',
+                                style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                ],
+              ),
             );
           },
         );
@@ -318,6 +457,7 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
 
   Widget _buildBalancesTab(List<LocalMember> members) {
     final db = ref.watch(databaseProvider);
+    final auth = ref.watch(supabaseAuthServiceProvider);
 
     return StreamBuilder<List<LocalExpense>>(
       stream: (db.select(db.localExpenses)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
@@ -325,15 +465,36 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
         return StreamBuilder<List<LocalSettlement>>(
           stream: (db.select(db.localSettlements)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
           builder: (context, setSnapshot) {
+            final expenses = expSnapshot.data ?? [];
             final settlements = setSnapshot.data ?? [];
 
-            // Dynamic net balance calculations
-            final netBalances = <String, int>{
-              'm_you': -145000 + 30000,
-              'm_rohan': -95000,
-              'm_chirag': -30000,
-              'm_aisha': 145000 + 95000,
-            };
+            final currentUserId = auth.currentUser?.id;
+            final youMember = members.firstWhere(
+              (m) =>
+                  (currentUserId != null && m.id == currentUserId) ||
+                  m.displayName.toLowerCase() == 'you' ||
+                  m.displayName.toLowerCase() == auth.currentDisplayName.toLowerCase(),
+              orElse: () => members.isNotEmpty ? members.first : const LocalMember(id: 'me', tripId: '', displayName: 'You', role: 'member'),
+            );
+            final youMemberId = youMember.id;
+
+            // Compute net balance per member dynamically
+            final netBalances = <String, int>{};
+            for (final m in members) {
+              netBalances[m.id] = 0;
+            }
+
+            final memberCount = members.isNotEmpty ? members.length : 1;
+            for (final e in expenses) {
+              final share = e.amountMinor ~/ memberCount;
+              for (final m in members) {
+                if (m.id == e.paidByMemberId) {
+                  netBalances[m.id] = (netBalances[m.id] ?? 0) + (e.amountMinor - share);
+                } else {
+                  netBalances[m.id] = (netBalances[m.id] ?? 0) - share;
+                }
+              }
+            }
 
             for (final s in settlements) {
               if (s.status == 'confirmed') {
@@ -344,104 +505,126 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
 
             final simplifiedDebts = simplifyDebts(netBalances);
 
-            return ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                // Top Tab Bar Pills
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      _buildTabPill('Expenses', 0),
-                      const SizedBox(width: 8),
-                      _buildTabPill('Balances', 1),
-                      const SizedBox(width: 8),
-                      _buildTabPill('Itinerary', 2),
-                    ],
-                  ),
-                ),
-
-                // Subheader: "Who owes who" matching Step 13
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Text(
-                    'Who owes who',
-                    style: AppTypography.titleMedium.copyWith(fontSize: 14),
-                  ),
-                ),
-
-                // Balance Rows matching Step 13
-                if (simplifiedDebts.isEmpty)
+            return RefreshIndicator(
+              onRefresh: _syncTripData,
+              color: AppColors.coral,
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  // Top Tab Bar Pills
                   Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Center(
-                      child: Text('All settled up! 🎉', style: AppTypography.titleMedium.copyWith(color: AppColors.green)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        _buildTabPill('Expenses', 0),
+                        const SizedBox(width: 8),
+                        _buildTabPill('Balances', 1),
+                        const SizedBox(width: 8),
+                        _buildTabPill('Itinerary', 2),
+                      ],
                     ),
-                  )
-                else
-                  ...simplifiedDebts.map((debt) {
-                    final fromName = debt.fromMemberId == 'm_you' ? 'You' : (members.firstWhere((m) => m.id == debt.fromMemberId, orElse: () => const LocalMember(id: '', tripId: '', displayName: 'Rohan', role: 'member')).displayName);
-                    final toName = debt.toMemberId == 'm_you' ? 'You' : (members.firstWhere((m) => m.id == debt.toMemberId, orElse: () => const LocalMember(id: '', tripId: '', displayName: 'Aisha', role: 'member')).displayName);
-                    final isYouOwer = debt.fromMemberId == 'm_you';
-                    final isYouReceiver = debt.toMemberId == 'm_you';
+                  ),
 
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: const BoxDecoration(
-                        border: Border(bottom: BorderSide(color: AppColors.line, width: 0.5)),
+                  // Subheader: "Who owes who"
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Text(
+                      'Who owes who',
+                      style: AppTypography.titleMedium.copyWith(fontSize: 14),
+                    ),
+                  ),
+
+                  // Balance Rows
+                  if (simplifiedDebts.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            const Icon(Icons.check_circle_outline_rounded, size: 40, color: AppColors.green),
+                            const SizedBox(height: 12),
+                            Text('All settled up! 🎉', style: AppTypography.titleMedium.copyWith(color: AppColors.green)),
+                            const SizedBox(height: 4),
+                            Text('No outstanding balances between group members.', style: AppTypography.bodySmall, textAlign: TextAlign.center),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              isYouOwer
-                                  ? 'You owe $toName'
-                                  : isYouReceiver
-                                      ? "You're owed by $fromName"
-                                      : '$fromName owes $toName',
-                              style: AppTypography.bodyMedium.copyWith(
+                    )
+                  else
+                    ...simplifiedDebts.map((debt) {
+                      final isYouOwer = debt.fromMemberId == youMemberId;
+                      final isYouReceiver = debt.toMemberId == youMemberId;
+
+                      final fromMember = members.firstWhere(
+                        (m) => m.id == debt.fromMemberId,
+                        orElse: () => LocalMember(id: debt.fromMemberId, tripId: widget.tripId, displayName: isYouOwer ? 'You' : 'Member', role: 'member'),
+                      );
+                      final toMember = members.firstWhere(
+                        (m) => m.id == debt.toMemberId,
+                        orElse: () => LocalMember(id: debt.toMemberId, tripId: widget.tripId, displayName: isYouReceiver ? 'You' : 'Member', role: 'member'),
+                      );
+
+                      final fromName = isYouOwer ? 'You' : fromMember.displayName;
+                      final toName = isYouReceiver ? 'You' : toMember.displayName;
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: const BoxDecoration(
+                          border: Border(bottom: BorderSide(color: AppColors.line, width: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                isYouOwer
+                                    ? 'You owe $toName'
+                                    : isYouReceiver
+                                        ? "You're owed by $fromName"
+                                        : '$fromName owes $toName',
+                                style: AppTypography.bodyMedium.copyWith(
+                                  color: isYouReceiver ? AppColors.green : AppColors.inkText,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '₹${(debt.amountMinor / 100).toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
                                 color: isYouReceiver ? AppColors.green : AppColors.inkText,
                               ),
                             ),
-                          ),
-                          Text(
-                            '₹${(debt.amountMinor / 100).toStringAsFixed(0)}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: isYouReceiver ? AppColors.green : AppColors.inkText,
-                            ),
-                          ),
-                          if (isYouOwer) ...[
-                            const SizedBox(width: 10),
-                            GestureDetector(
-                              onTap: () => SettleSheet.show(
-                                context,
-                                tripId: widget.tripId,
-                                fromMemberId: debt.fromMemberId,
-                                toMemberId: debt.toMemberId,
-                                payeeName: toName,
-                                payeeVpa: '$toName@okhdfcbank'.toLowerCase(),
-                                amountMinor: debt.amountMinor,
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: AppColors.ink,
-                                  borderRadius: BorderRadius.circular(999),
+                            if (isYouOwer) ...[
+                              const SizedBox(width: 10),
+                              GestureDetector(
+                                onTap: () => SettleSheet.show(
+                                  context,
+                                  tripId: widget.tripId,
+                                  fromMemberId: debt.fromMemberId,
+                                  toMemberId: debt.toMemberId,
+                                  payeeName: toName,
+                                  payeeVpa: '${toName.toLowerCase().replaceAll(' ', '')}@okhdfcbank',
+                                  amountMinor: debt.amountMinor,
                                 ),
-                                child: const Text(
-                                  'Settle',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.ink,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: const Text(
+                                    'Settle',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
-                        ],
-                      ),
-                    );
-                  }),
-              ],
+                        ),
+                      );
+                    }),
+                ],
+              ),
             );
           },
         );
