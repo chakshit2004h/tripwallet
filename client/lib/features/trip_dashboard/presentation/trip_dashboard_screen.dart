@@ -116,12 +116,6 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final db = ref.watch(databaseProvider);
-    final auth = ref.watch(supabaseAuthServiceProvider);
-
-    final displayName = auth.currentDisplayName.trim();
-    final initials = displayName.isNotEmpty
-        ? displayName.split(' ').map((n) => n.isNotEmpty ? n[0].toUpperCase() : '').take(2).join()
-        : 'ME';
 
     return StreamBuilder<LocalTrip?>(
       stream: (db.select(db.localTrips)..where((t) => t.id.equals(widget.tripId))).watchSingleOrNull(),
@@ -152,7 +146,14 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(tripTitle, style: AppTypography.titleLarge.copyWith(fontSize: 18)),
+                            Flexible(
+                              child: Text(
+                                tripTitle,
+                                style: AppTypography.titleLarge.copyWith(fontSize: 18),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                             const SizedBox(width: 4),
                             const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.inkSoft),
                           ],
@@ -162,6 +163,8 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
                           child: Text(
                             '$memberCount member${memberCount == 1 ? '' : 's'} · $tripDates',
                             style: AppTypography.caption,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -181,48 +184,57 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
                         : const Icon(Icons.sync_rounded, size: 20),
                     onPressed: _syncTripData,
                   ),
-                  // Alerts Icon
-                  IconButton(
-                    tooltip: 'Alerts',
-                    icon: const Icon(Icons.notifications_none_rounded, size: 22),
-                    onPressed: () => context.push('/alerts'),
-                  ),
                   // Summary Icon
                   IconButton(
                     tooltip: 'Trip Summary',
                     icon: const Icon(Icons.bar_chart_rounded, size: 22),
                     onPressed: () => TripSummarySheet.show(context, tripId: widget.tripId),
                   ),
-                  // Settings Icon
-                  IconButton(
-                    tooltip: 'Trip Settings',
-                    icon: const Icon(Icons.settings_outlined, size: 20),
-                    onPressed: () => context.push('/trip/${widget.tripId}/settings'),
-                  ),
-                  // Profile Avatar
-                  Padding(
-                    padding: const EdgeInsets.only(right: 12, left: 4),
-                    child: GestureDetector(
-                      onTap: () => context.push('/profile'),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: const BoxDecoration(
-                          color: AppColors.coralTint,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            initials,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.coral,
-                            ),
-                          ),
+                  // More options overflow menu
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert_rounded, size: 22),
+                    tooltip: 'More options',
+                    onSelected: (value) {
+                      if (value == 'settings') {
+                        context.push('/trip/${widget.tripId}/settings');
+                      } else if (value == 'alerts') {
+                        context.push('/alerts');
+                      } else if (value == 'profile') {
+                        context.push('/profile');
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'settings',
+                        child: Row(
+                          children: [
+                            Icon(Icons.settings_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Trip Settings'),
+                          ],
                         ),
                       ),
-                    ),
+                      const PopupMenuItem(
+                        value: 'alerts',
+                        child: Row(
+                          children: [
+                            Icon(Icons.notifications_none_rounded, size: 18),
+                            SizedBox(width: 10),
+                            Text('Activity & Alerts'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'profile',
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_outline_rounded, size: 18),
+                            SizedBox(width: 10),
+                            Text('Profile & UPI'),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

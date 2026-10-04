@@ -53,6 +53,19 @@ class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
           ),
         );
 
+    // Record in localAlerts
+    await db.into(db.localAlerts).insertOnConflictUpdate(
+          LocalAlertsCompanion(
+            id: drift.Value('alt_${DateTime.now().millisecondsSinceEpoch}'),
+            tripId: drift.Value(widget.tripId),
+            title: drift.Value('Added "$title" · ₹${(amountMinor / 100).toStringAsFixed(0)}'),
+            timeAgo: const drift.Value('Just now'),
+            iconType: const drift.Value('receipt'),
+            isCoral: const drift.Value(false),
+            createdAt: drift.Value(DateTime.now()),
+          ),
+        );
+
     try {
       final expenseService = ref.read(supabaseExpensesServiceProvider);
       await expenseService.addExpense(

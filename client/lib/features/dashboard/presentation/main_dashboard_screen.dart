@@ -90,9 +90,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildDockItem(index: 0, icon: Icons.flight_takeoff_rounded, label: 'Journeys'),
               _buildDockItem(index: 1, icon: Icons.account_balance_wallet_outlined, label: 'Balances'),
@@ -107,36 +106,33 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
 
   Widget _buildDockItem({required int index, required IconData icon, required String label}) {
     final isSelected = _currentTab == index;
-    return GestureDetector(
-      onTap: () => setState(() => _currentTab = index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.coral.withValues(alpha: 0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: isSelected ? AppColors.coral : AppColors.muted,
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 6),
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _currentTab = index),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 22,
+                color: isSelected ? AppColors.coral : AppColors.muted,
+              ),
+              const SizedBox(height: 3),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AppTypography.caption.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.coral,
-                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? AppColors.coral : AppColors.muted,
+                  fontSize: 11,
                 ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -162,23 +158,6 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
           builder: (context, expSnap) {
             final allExpenses = expSnap.data ?? [];
 
-            // Compute dynamic net balance for current user
-            final currentUserId = auth.currentUserId ?? '';
-            int totalPaidByMe = 0;
-            int totalSpentAcrossTrips = 0;
-
-            for (final exp in allExpenses) {
-              totalSpentAcrossTrips += exp.amountMinor;
-              if (exp.paidByMemberId == currentUserId) {
-                totalPaidByMe += exp.amountMinor;
-              }
-            }
-
-            // Estimate share (if member count > 1)
-            final netPositionMinor = totalPaidByMe - (totalSpentAcrossTrips ~/ (allTrips.isEmpty ? 1 : 2));
-            final isOwed = netPositionMinor >= 0;
-            final netFormatted = '₹${(netPositionMinor.abs() / 100).toStringAsFixed(0)}';
-
             return RefreshIndicator(
               onRefresh: _fetchCloudData,
               color: AppColors.coral,
@@ -189,57 +168,20 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 1. Top Header: Greeting + Net Balance Chip
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+                      // 1. Top Header: Clean Greeting
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Hey $travelerName ✈️',
-                                  style: AppTypography.display.copyWith(fontSize: 24, letterSpacing: -0.5),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  allTrips.isEmpty ? 'Ready for your next journey?' : 'Here is your travel summary',
-                                  style: AppTypography.caption.copyWith(color: AppColors.muted),
-                                ),
-                              ],
-                            ),
+                          Text(
+                            'Hey $travelerName ✈️',
+                            style: AppTypography.display.copyWith(fontSize: 26, letterSpacing: -0.5),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(width: 12),
-                          // Dynamic Net Balance Chip
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isOwed ? AppColors.green.withValues(alpha: 0.1) : AppColors.amber.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: isOwed ? AppColors.green.withValues(alpha: 0.25) : AppColors.amber.withValues(alpha: 0.25),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isOwed ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                                  size: 14,
-                                  color: isOwed ? AppColors.green : AppColors.amber,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  netPositionMinor == 0 ? 'Settled up ✓' : (isOwed ? '$netFormatted back' : 'Owe $netFormatted'),
-                                  style: AppTypography.caption.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: isOwed ? AppColors.green : AppColors.amber,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          const SizedBox(height: 4),
+                          Text(
+                            allTrips.isEmpty ? 'Ready for your next journey?' : 'Here is your travel summary',
+                            style: AppTypography.caption.copyWith(color: AppColors.muted, fontSize: 13),
                           ),
                         ],
                       ),
@@ -253,8 +195,8 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
                       ],
                       const SizedBox(height: 20),
 
-                      // 3. SMART QUICK ACTIONS
-                      _buildQuickActionBar(context, heroTrip),
+                      // 3. TRIP ACTIONS (Join another trip or create fresh)
+                      _buildQuickActionBar(context),
                       const SizedBox(height: 24),
 
                       // 4. OTHER JOURNEYS (If 2+ trips exist)
@@ -347,28 +289,35 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.coral.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.circle, color: AppColors.coral, size: 8),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Active Journey',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.coral,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.coral.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.circle, color: AppColors.coral, size: 8),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Active Journey',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.coral,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -519,87 +468,89 @@ class _MainDashboardScreenState extends ConsumerState<MainDashboardScreen> {
     );
   }
 
-  // Smart Quick Action Bar
-  Widget _buildQuickActionBar(BuildContext context, LocalTrip? currentTrip) {
+  // Trip-level actions (Join another trip or start a fresh one)
+  Widget _buildQuickActionBar(BuildContext context) {
     return Row(
       children: [
-        // 1. Scan Bill (Camera OCR)
+        // 1. Join another trip
         Expanded(
-          child: _buildActionPill(
-            icon: Icons.camera_alt_rounded,
-            label: 'Scan Bill',
-            color: AppColors.coral,
-            onTap: () {
-              if (currentTrip != null) {
-                context.push('/expense/manual?tripId=${currentTrip.id}');
-              } else {
-                context.push('/create-trip');
-              }
-            },
-          ),
-        ),
-        const SizedBox(width: 10),
-
-        // 2. Add Expense
-        Expanded(
-          child: _buildActionPill(
-            icon: Icons.add_rounded,
-            label: 'Add Expense',
-            color: AppColors.ink,
-            onTap: () {
-              if (currentTrip != null) {
-                context.push('/expense/manual?tripId=${currentTrip.id}');
-              } else {
-                context.push('/create-trip');
-              }
-            },
-          ),
-        ),
-        const SizedBox(width: 10),
-
-        // 3. Join / Invite
-        Expanded(
-          child: _buildActionPill(
-            icon: Icons.group_add_rounded,
-            label: 'Join / Invite',
-            color: AppColors.green,
+          child: InkWell(
             onTap: () => context.push('/join-trip'),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.paper,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.line),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.coral.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.qr_code_rounded, color: AppColors.coral, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Join trip', style: AppTypography.titleMedium.copyWith(fontSize: 13)),
+                        Text('With invite code', style: AppTypography.caption.copyWith(fontSize: 10, color: AppColors.muted)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+
+        // 2. Start a new trip
+        Expanded(
+          child: InkWell(
+            onTap: () => context.push('/create-trip'),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppColors.paper,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.line),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.ink.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.add_rounded, color: AppColors.ink, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('New trip', style: AppTypography.titleMedium.copyWith(fontSize: 13)),
+                        Text('Start fresh crew', style: AppTypography.caption.copyWith(fontSize: 10, color: AppColors.muted)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildActionPill({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: AppColors.paper,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.line),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 22, color: color),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: AppTypography.caption.copyWith(fontWeight: FontWeight.w700, fontSize: 11),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
     );
   }
 
