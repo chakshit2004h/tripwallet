@@ -9,10 +9,10 @@ import '../../../core/domain/debt_simplifier.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/sync_status_banner.dart';
-import '../../../core/widgets/trip_wallet_bottom_nav_bar.dart';
+import 'trip_speed_dial_fab.dart';
 import '../../balances_settlement/presentation/settle_sheet.dart';
 import '../../expenses/data/supabase_expenses_service.dart';
-import '../../expenses/presentation/add_expense_sheet.dart';
+import '../../expenses/presentation/receipt_camera_screen.dart';
 import '../../itinerary/presentation/itinerary_tab_view.dart';
 import '../../paywall/presentation/pass_active_screen.dart';
 import '../../trips/data/supabase_trips_service.dart';
@@ -238,19 +238,30 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
                   ),
                 ],
               ),
-              body: Column(
+              body: Stack(
                 children: [
-                  SyncStatusBanner(tripId: widget.tripId),
-                  Expanded(
-                    child: _buildActiveContent(members, tripTitle),
+                  Column(
+                    children: [
+                      SyncStatusBanner(tripId: widget.tripId),
+                      Expanded(
+                        child: _buildActiveContent(members, tripTitle),
+                      ),
+                    ],
+                  ),
+                  // Upward Floating Speed Dial (Bottom Right)
+                  TripSpeedDialFab(
+                    onScanCamera: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ReceiptCameraScreen(tripId: widget.tripId),
+                        ),
+                      );
+                    },
+                    onAddExpense: () => context.push('/expense/manual?tripId=${widget.tripId}'),
                   ),
                 ],
               ),
-              bottomNavigationBar: TripWalletBottomNavBar(
-                currentIndex: _activeTabIndex,
-                onTabSelected: (index) => setState(() => _activeTabIndex = index),
-                onScanPressed: () => AddExpenseSheet.show(context, tripId: widget.tripId),
-              ),
+              bottomNavigationBar: _buildBottomNav(),
             );
           },
         );
@@ -326,22 +337,8 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
               onRefresh: _syncTripData,
               color: AppColors.coral,
               child: ListView(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.only(bottom: 88),
                 children: [
-                  // Top Tab Bar Pills (Expenses | Balances | Itinerary)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        _buildTabPill('Expenses', 0),
-                        const SizedBox(width: 8),
-                        _buildTabPill('Balances', 1),
-                        const SizedBox(width: 8),
-                        _buildTabPill('Itinerary', 2),
-                      ],
-                    ),
-                  ),
-
                   // Stat Cards Grid
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -521,22 +518,8 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
               onRefresh: _syncTripData,
               color: AppColors.coral,
               child: ListView(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.only(bottom: 88),
                 children: [
-                  // Top Tab Bar Pills
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        _buildTabPill('Expenses', 0),
-                        const SizedBox(width: 8),
-                        _buildTabPill('Balances', 1),
-                        const SizedBox(width: 8),
-                        _buildTabPill('Itinerary', 2),
-                      ],
-                    ),
-                  ),
-
                   // Subheader: "Who owes who"
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -670,23 +653,76 @@ class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
     );
   }
 
-  Widget _buildTabPill(String label, int index) {
-    final isSelected = _activeTabIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _activeTabIndex = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.ink : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
+  Widget _buildBottomNav() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.card,
+        border: Border(
+          top: BorderSide(color: AppColors.line, width: 0.8),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w600,
-            color: isSelected ? Colors.white : AppColors.inkSoft,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(
+                index: 0,
+                label: 'Expenses',
+                icon: Icons.account_balance_wallet_outlined,
+                activeIcon: Icons.account_balance_wallet_rounded,
+              ),
+              _buildNavItem(
+                index: 1,
+                label: 'Balances',
+                icon: Icons.scale_outlined,
+                activeIcon: Icons.scale_rounded,
+              ),
+              _buildNavItem(
+                index: 2,
+                label: 'Itinerary',
+                icon: Icons.map_outlined,
+                activeIcon: Icons.map_rounded,
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required String label,
+    required IconData icon,
+    required IconData activeIcon,
+  }) {
+    final isSelected = _activeTabIndex == index;
+    final color = isSelected ? AppColors.coral : AppColors.inkSoft;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _activeTabIndex = index),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              color: color,
+              size: 22,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
