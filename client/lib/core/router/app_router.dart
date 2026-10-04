@@ -18,16 +18,30 @@ import '../../features/expenses/presentation/expense_detail_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 
+CustomTransitionPage<void> _slideRightToLeft(LocalKey key, Widget child) {
+  return CustomTransitionPage<void>(
+    key: key,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 350),
+    reverseTransitionDuration: const Duration(milliseconds: 300),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final tween = Tween(begin: const Offset(1.0, 0.0), end: Offset.zero)
+          .chain(CurveTween(curve: Curves.easeOutCubic));
+      return SlideTransition(position: animation.drive(tween), child: child);
+    },
+  );
+}
+
 final appRouter = GoRouter(
   initialLocation: '/',
   routes: [
     GoRoute(
       path: '/login',
-      builder: (BuildContext context, GoRouterState state) => const LoginScreen(),
+      pageBuilder: (context, state) => _slideRightToLeft(state.pageKey, const LoginScreen()),
     ),
     GoRoute(
       path: '/register',
-      builder: (BuildContext context, GoRouterState state) => const RegisterScreen(),
+      pageBuilder: (context, state) => _slideRightToLeft(state.pageKey, const RegisterScreen()),
     ),
     GoRoute(
       path: '/',

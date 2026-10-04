@@ -1,4 +1,4 @@
-package com.tripwallet.tripwallet_client
+package com.tripwallet.app
 
 import io.flutter.embedding.android.FlutterActivity
 
