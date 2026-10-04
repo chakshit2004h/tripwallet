@@ -10,13 +10,13 @@ import '../../features/trip_dashboard/presentation/trip_dashboard_screen.dart';
 import '../../features/trip_dashboard/presentation/trip_settings_screen.dart';
 import '../../features/trip_dashboard/presentation/members_list_screen.dart';
 import '../../features/paywall/presentation/pass_active_screen.dart';
-import '../../features/trips/presentation/your_trips_screen.dart';
 import '../../features/alerts/presentation/alerts_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/expenses/presentation/manual_expense_screen.dart';
 import '../../features/expenses/presentation/expense_detail_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/dashboard/presentation/main_dashboard_screen.dart';
 
 CustomTransitionPage<void> _slideRightToLeft(LocalKey key, Widget child) {
   return CustomTransitionPage<void>(
@@ -76,7 +76,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/trips',
-      builder: (BuildContext context, GoRouterState state) => const YourTripsScreen(),
+      builder: (BuildContext context, GoRouterState state) => const MainDashboardScreen(),
     ),
     GoRoute(
       path: '/alerts',
