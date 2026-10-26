@@ -1,4 +1,3 @@
-import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/auth/supabase_auth_service.dart';
@@ -88,234 +87,41 @@ class SupabaseTripMember {
 class SupabaseTripsService {
   final SupabaseClient? client;
   final SupabaseAuthService auth;
-
   SupabaseTripsService({this.client, required this.auth});
+  SupabaseClient get _client => client ?? (throw StateError('Cloud connection is not configured.'));
 
-  String _generateInviteCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final random = Random();
-    return List.generate(6, (index) => chars[random.nextInt(chars.length)]).join();
-  }
-
-  Future<SupabaseTrip> createTrip({
-    required String name,
-    DateTime? startDate,
-    DateTime? endDate,
-    String currency = 'INR',
-    String? coverImageUrl,
-  }) async {
-    final c = client;
-    if (c == null) throw Exception('Supabase client not initialized');
-
-    final user = auth.currentUser;
-    if (user == null) {
-      throw Exception('Must be logged in to create a trip');
-    }
-
-    final inviteCode = _generateInviteCode();
-
-    final tripData = await c.from('trips').insert({
-      'name': name,
-      'invite_code': inviteCode,
-      'start_date': startDate?.toIso8601String(),
-      'end_date': endDate?.toIso8601String(),
-      'base_currency': currency,
-      'cover_image_url': coverImageUrl,
-      'status': 'active',
-      'created_by': user.id,
-    }).select().single();
-
-    final tripId = tripData['id'] as String;
-
-    // Add creator to trip_members
-    await c.from('trip_members').insert({
-      'trip_id': tripId,
-      'user_id': user.id,
-      'display_name': auth.currentDisplayName,
-      'role': 'creator',
-      'payment_vpa': auth.currentPaymentVpa,
-      'avatar_url': 'YO',
+  Future<SupabaseTrip> createTrip({required String name, DateTime? startDate,
+    DateTime? endDate, String currency = 'INR', String? coverImageUrl}) async {
+    final row = await _client.rpc('create_trip', params: {
+      'p_name': name.trim(), 'p_currency': currency,
+      'p_start': startDate?.toIso8601String().split('T').first,
+      'p_end': endDate?.toIso8601String().split('T').first,
     });
-
-    return SupabaseTrip.fromMap(tripData, memberCount: 1);
+    return SupabaseTrip.fromMap(Map<String,dynamic>.from(row));
   }
-
   Future<List<SupabaseTrip>> fetchUserTrips() async {
-    final c = client;
-    if (c == null) return [];
-
-    final user = auth.currentUser;
-    if (user == null) return [];
-
-    try {
-      // Fetch trip IDs where user is a member
-      final memberRows = await c
-          .from('trip_members')
-          .select('trip_id')
-          .eq('user_id', user.id);
-
-      final tripIds = (memberRows as List).map((row) => row['trip_id'] as String).toList();
-      if (tripIds.isEmpty) return [];
-
-      final tripsData = await c
-          .from('trips')
-          .select()
-          .inFilter('id', tripIds)
-          .order('created_at', ascending: false);
-
-      final List<SupabaseTrip> results = [];
-      for (final tripMap in tripsData) {
-        final tripId = tripMap['id'] as String;
-        // Count members
-        final membersCount = await c
-            .from('trip_members')
-            .count(CountOption.exact)
-            .eq('trip_id', tripId);
-
-        // Sum expenses
-        final expRows = await c
-            .from('expenses')
-            .select('amount_minor')
-            .eq('trip_id', tripId);
-
-        final totalSpent = (expRows as List).fold<int>(
-          0,
-          (sum, e) => sum + ((e['amount_minor'] as num?)?.toInt() ?? 0),
-        );
-
-        results.add(SupabaseTrip.fromMap(
-          tripMap,
-          memberCount: membersCount,
-          totalSpentMinor: totalSpent,
-        ));
-      }
-
-      return results;
-    } catch (_) {
-      return [];
-    }
+    final rows = await _client.from('trips').select().order('created_at', ascending: false);
+    return rows.map(SupabaseTrip.fromMap).toList();
   }
-
-  Future<SupabaseTrip?> fetchTripById(String tripId) async {
-    final c = client;
-    if (c == null) return null;
-
-    try {
-      final tripMap = await c
-          .from('trips')
-          .select()
-          .eq('id', tripId)
-          .maybeSingle();
-
-      if (tripMap == null) return null;
-
-      final membersCount = await c
-          .from('trip_members')
-          .count(CountOption.exact)
-          .eq('trip_id', tripId);
-
-      return SupabaseTrip.fromMap(tripMap, memberCount: membersCount);
-    } catch (_) {
-      return null;
-    }
+  Future<SupabaseTrip?> fetchTripById(String id) async {
+    final row = await _client.from('trips').select().eq('id', id).maybeSingle();
+    return row == null ? null : SupabaseTrip.fromMap(row);
   }
-
-  Future<SupabaseTrip?> fetchTripByInviteCode(String inviteCode) async {
-    final c = client;
-    if (c == null) return null;
-
-    try {
-      final tripMap = await c
-          .from('trips')
-          .select()
-          .eq('invite_code', inviteCode.toUpperCase().trim())
-          .maybeSingle();
-
-      if (tripMap == null) return null;
-
-      final membersCount = await c
-          .from('trip_members')
-          .count(CountOption.exact)
-          .eq('trip_id', tripMap['id']);
-
-      return SupabaseTrip.fromMap(tripMap, memberCount: membersCount);
-    } catch (_) {
-      return null;
-    }
+  Future<SupabaseTrip?> fetchTripByInviteCode(String code) async => _resolve(code, false);
+  Future<SupabaseTrip> joinTripByInviteCode(String code) async => _resolve(code, true);
+  Future<SupabaseTrip> _resolve(String code, bool join) async {
+    final row = Map<String,dynamic>.from(await _client.rpc('resolve_invite',
+      params: {'p_code': code.trim().toUpperCase(), 'p_join': join}));
+    if (row['error'] != null) throw FormatException(row['error']);
+    return SupabaseTrip.fromMap(row);
   }
-
-  Future<SupabaseTrip> joinTripByInviteCode(String inviteCode) async {
-    final c = client;
-    if (c == null) throw Exception('Supabase client not initialized');
-
-    final user = auth.currentUser;
-    if (user == null) {
-      throw Exception('Must be logged in to join a trip');
-    }
-
-    final trip = await fetchTripByInviteCode(inviteCode);
-    if (trip == null) {
-      throw Exception('Invalid invite code: "$inviteCode". Trip not found.');
-    }
-
-    // Check if user is already a member
-    final existing = await c
-        .from('trip_members')
-        .select()
-        .eq('trip_id', trip.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-    if (existing == null) {
-      await c.from('trip_members').insert({
-        'trip_id': trip.id,
-        'user_id': user.id,
-        'display_name': auth.currentDisplayName,
-        'role': 'member',
-        'payment_vpa': auth.currentPaymentVpa,
-      });
-    }
-
-    return trip;
+  Future<List<SupabaseTripMember>> fetchTripMembers(String id) async {
+    final rows = await _client.from('trip_members').select().eq('trip_id',id).order('joined_at');
+    return rows.map(SupabaseTripMember.fromMap).toList();
   }
-
-  Future<List<SupabaseTripMember>> fetchTripMembers(String tripId) async {
-    final c = client;
-    if (c == null) return [];
-
-    try {
-      final rows = await c
-          .from('trip_members')
-          .select()
-          .eq('trip_id', tripId)
-          .order('joined_at', ascending: true);
-
-      return (rows as List).map((m) => SupabaseTripMember.fromMap(m)).toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Stream<List<SupabaseTripMember>> streamTripMembers(String tripId) {
-    final c = client;
-    if (c == null) return const Stream.empty();
-
-    return c
-        .from('trip_members')
-        .stream(primaryKey: ['id'])
-        .eq('trip_id', tripId)
-        .map((list) => list.map((m) => SupabaseTripMember.fromMap(m)).toList());
-  }
-
-  Future<void> archiveTrip(String tripId) async {
-    final c = client;
-    if (c == null) return;
-    await c.from('trips').update({'status': 'archived'}).eq('id', tripId);
-  }
-
-  Future<void> deleteTrip(String tripId) async {
-    final c = client;
-    if (c == null) return;
-    await c.from('trips').delete().eq('id', tripId);
+  Future<void> archiveTrip(String id) => manageTrip(id, 'archive');
+  Future<void> deleteTrip(String id) => manageTrip(id, 'delete');
+  Future<void> manageTrip(String id, String action) async {
+    await _client.rpc('manage_trip',params:{'p_trip':id,'p_action':action});
   }
 }

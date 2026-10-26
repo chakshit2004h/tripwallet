@@ -1,353 +1,290 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/data/trip_repository.dart';
+import '../../../core/data/app_error.dart';
+import '../../../core/domain/money.dart';
+import '../../../core/domain/expense_members.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/ledger_widgets.dart';
 import '../domain/receipt_models.dart';
 import 'item_claim_screen.dart';
+import 'receipt_totals.dart';
 
-class LineItemReviewScreen extends StatefulWidget {
+class LineItemReviewScreen extends ConsumerStatefulWidget {
   final ReceiptData receipt;
-
-  const LineItemReviewScreen({
-    super.key,
-    required this.receipt,
-  });
-
+  const LineItemReviewScreen({super.key, required this.receipt});
   @override
-  State<LineItemReviewScreen> createState() => _LineItemReviewScreenState();
+  ConsumerState<LineItemReviewScreen> createState() =>
+      _LineItemReviewScreenState();
 }
 
-class _LineItemReviewScreenState extends State<LineItemReviewScreen> {
-  late TextEditingController _titleController;
-  late TextEditingController _taxController;
-  late TextEditingController _serviceController;
-
-  @override
-  void initState() {
-    super.initState();
-    _titleController = TextEditingController(text: widget.receipt.title);
-    _taxController = TextEditingController(
-      text: (widget.receipt.taxMinor / 100).toStringAsFixed(2),
-    );
-    _serviceController = TextEditingController(
-      text: (widget.receipt.serviceChargeMinor / 100).toStringAsFixed(2),
-    );
+class _LineItemReviewScreenState extends ConsumerState<LineItemReviewScreen> {
+  final _form = GlobalKey<FormState>();
+  late final _title = TextEditingController(text: widget.receipt.title);
+  late final _tax = TextEditingController(
+    text: decimalAmount(widget.receipt.taxMinor, widget.receipt.currency),
+  );
+  late final _service = TextEditingController(
+    text: decimalAmount(
+      widget.receipt.serviceChargeMinor,
+      widget.receipt.currency,
+    ),
+  );
+  late final _printedTotal = TextEditingController(
+    text: widget.receipt.printedTotalMinor == null
+        ? ''
+        : decimalAmount(
+            widget.receipt.printedTotalMinor!,
+            widget.receipt.currency,
+          ),
+  );
+  String? _error;
+  void _refreshTotals() {
+    setState(() {
+      try {
+        widget.receipt.taxMinor = parseMinor(
+          _tax.text,
+          widget.receipt.currency,
+          allowZero: true,
+        );
+      } catch (_) {}
+      try {
+        widget.receipt.serviceChargeMinor = parseMinor(
+          _service.text,
+          widget.receipt.currency,
+          allowZero: true,
+        );
+      } catch (_) {}
+      try {
+        widget.receipt.printedTotalMinor = _printedTotal.text.trim().isEmpty
+            ? null
+            : parseMinor(_printedTotal.text, widget.receipt.currency);
+      } catch (_) {}
+    });
   }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _taxController.dispose();
-    _serviceController.dispose();
+    _title.dispose();
+    _tax.dispose();
+    _service.dispose();
+    _printedTotal.dispose();
     super.dispose();
   }
 
-  void _addItem() {
-    setState(() {
-      widget.receipt.items.add(
-        ReceiptItem(
-          label: 'New Item',
-          priceMinor: 10000, // ₹100.00
-          quantity: 1,
-          confidence: 1.0,
+  String? _priceValidator(String? text, {bool allowZero = false}) {
+    try {
+      parseMinor(text ?? '', widget.receipt.currency, allowZero: allowZero);
+      return null;
+    } catch (e) {
+      return 'Invalid amount';
+    }
+  }
+
+  Future<void> _continue() async {
+    if (!_form.currentState!.validate()) return;
+    _form.currentState!.save();
+    try {
+      widget.receipt.title = _title.text.trim();
+      widget.receipt.taxMinor = parseMinor(
+        _tax.text,
+        widget.receipt.currency,
+        allowZero: true,
+      );
+      widget.receipt.serviceChargeMinor = parseMinor(
+        _service.text,
+        widget.receipt.currency,
+        allowZero: true,
+      );
+      widget.receipt.printedTotalMinor = _printedTotal.text.trim().isEmpty
+          ? null
+          : parseMinor(_printedTotal.text, widget.receipt.currency);
+      if (widget.receipt.printedTotalMinor != null &&
+          widget.receipt.totalMinor != widget.receipt.printedTotalMinor) {
+        throw const FormatException(
+          'Items and charges must match the printed bill total. Correct missed items, discounts or charges, or correct the printed total if it was scanned incorrectly.',
+        );
+      }
+      final data = await ref.read(tripRepositoryProvider).read();
+      final members = data.members
+          .where(
+            (m) => m.tripId == widget.receipt.tripId && canShareNewExpense(m),
+          )
+          .map(
+            (m) => MemberProfile(
+              id: m.id,
+              name: m.displayName,
+              initial: m.displayName.characters.firstOrNull ?? '?',
+              color: AppColors.coralDark,
+            ),
+          )
+          .toList();
+      if (members.isEmpty) {
+        throw StateError('Load the trip members before splitting.');
+      }
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) =>
+              ItemClaimScreen(receipt: widget.receipt, members: members),
         ),
       );
-    });
-  }
-
-  void _removeItem(int index) {
-    if (widget.receipt.items.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('At least one item is required')),
-      );
-      return;
+    } catch (e) {
+      if (mounted) setState(() => _error = appError(e));
     }
-    setState(() {
-      widget.receipt.items.removeAt(index);
-    });
-  }
-
-  void _onContinue() {
-    widget.receipt.title = _titleController.text.trim();
-    final taxVal = double.tryParse(_taxController.text.trim()) ?? 0.0;
-    widget.receipt.taxMinor = (taxVal * 100).round();
-    final serviceVal = double.tryParse(_serviceController.text.trim()) ?? 0.0;
-    widget.receipt.serviceChargeMinor = (serviceVal * 100).round();
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ItemClaimScreen(receipt: widget.receipt),
-      ),
-    );
   }
 
   @override
-  Widget build(BuildContext context) {
-    final subtotal = widget.receipt.subtotalMinor;
-    final taxVal = (double.tryParse(_taxController.text.trim()) ?? 0.0) * 100;
-    final serviceVal = (double.tryParse(_serviceController.text.trim()) ?? 0.0) * 100;
-    final grandTotal = subtotal + taxVal.round() + serviceVal.round();
-
-    return Scaffold(
-      backgroundColor: AppColors.card,
-      appBar: AppBar(
-        title: Text('Review Scanned Items', style: AppTypography.titleMedium),
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.green.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.green.withOpacity(0.3)),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Review receipt')),
+    body: ContentWidth(
+      child: Form(
+        key: _form,
+        onChanged: _refreshTotals,
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text('Check the little details.', style: AppTypography.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              'Correct any missed items or prices. Compare the final total with your receipt.',
+              style: AppTypography.bodyLarge,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.check_circle_rounded, color: AppColors.green, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  '98% OCR Match',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.green,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
+            const SizedBox(height: 24),
+            TextFormField(
+              controller: _title,
+              decoration: const InputDecoration(labelText: 'Expense title'),
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Enter a title' : null,
             ),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // Title card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.paper,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.line),
-                  ),
+            const SizedBox(height: 20),
+            ...widget.receipt.items.map(
+              (item) => Card(
+                key: ValueKey(item.id),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Expense Title', style: AppTypography.caption),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _titleController,
-                        style: AppTypography.titleMedium,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              initialValue: item.label,
+                              decoration: const InputDecoration(
+                                labelText: 'Item',
+                              ),
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Enter an item name'
+                                  : null,
+                              onSaved: (v) => item.label = v!.trim(),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Remove item',
+                            onPressed: () => setState(
+                              () => widget.receipt.items.remove(item),
+                            ),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                      if (item.unitPriceMinor != null)
+                        Text(
+                          'Scanned: quantity ${item.quantity} · Unit price ${formatMoney(item.unitPriceMinor!, widget.receipt.currency)}${item.taxRatePercent == null ? '' : ' · Tax ${item.taxRatePercent}%'}',
+                          style: AppTypography.bodySmall,
+                        ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: decimalAmount(
+                          item.priceMinor,
+                          widget.receipt.currency,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Line total (${widget.receipt.currency})',
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        onChanged: (v) {
+                          try {
+                            item.priceMinor = parseMinor(
+                              v,
+                              widget.receipt.currency,
+                            );
+                            _refreshTotals();
+                          } catch (_) {}
+                        },
+                        validator: _priceValidator,
+                        onSaved: (v) => item.priceMinor = parseMinor(
+                          v!,
+                          widget.receipt.currency,
                         ),
                       ),
                     ],
                   ),
                 ),
-
-                const SizedBox(height: 20),
-
-                // Line Items Header
-                Row(
-                  children: [
-                    Text('Line Items (${widget.receipt.items.length})', style: AppTypography.titleMedium),
-                    const Spacer(),
-                    TextButton.icon(
-                      onPressed: _addItem,
-                      icon: const Icon(Icons.add_rounded, size: 18, color: AppColors.coral),
-                      label: Text('Add Item', style: AppTypography.caption.copyWith(color: AppColors.coral, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                // Items list
-                ...widget.receipt.items.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
-                  return _buildItemRow(item, index);
-                }),
-
-                const SizedBox(height: 20),
-
-                // Taxes & Service Charge Card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.paper,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.line),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Items Subtotal', style: AppTypography.bodyMedium),
-                          Text('₹${(subtotal / 100).toStringAsFixed(2)}', style: AppTypography.titleMedium),
-                        ],
-                      ),
-                      const Divider(height: 24, color: AppColors.line),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text('Tax (GST / VAT)', style: AppTypography.bodyMedium),
-                          ),
-                          SizedBox(
-                            width: 100,
-                            child: TextField(
-                              controller: _taxController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              textAlign: TextAlign.right,
-                              style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
-                              decoration: const InputDecoration(
-                                prefixText: '₹',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              ),
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text('Service Charge / Tip', style: AppTypography.bodyMedium),
-                          ),
-                          SizedBox(
-                            width: 100,
-                            child: TextField(
-                              controller: _serviceController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              textAlign: TextAlign.right,
-                              style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
-                              decoration: const InputDecoration(
-                                prefixText: '₹',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              ),
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 24, color: AppColors.line),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Receipt Total', style: AppTypography.titleMedium),
-                          Text(
-                            '₹${(grandTotal / 100).toStringAsFixed(2)}',
-                            style: AppTypography.titleMedium.copyWith(
-                              color: AppColors.coral,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Bottom CTA
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            decoration: const BoxDecoration(
-              color: AppColors.paper,
-              border: Border(top: BorderSide(color: AppColors.line)),
-            ),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _onContinue,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.coral,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Continue to Item Claiming', style: AppTypography.button),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward_rounded, size: 20),
-                  ],
-                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItemRow(ReceiptItem item, int index) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.line),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: TextFormField(
-              initialValue: item.label,
-              style: AppTypography.bodyMedium,
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
+            TextButton.icon(
+              onPressed: () => setState(
+                () => widget.receipt.items.add(
+                  ReceiptItem(label: '', priceMinor: 0),
+                ),
               ),
-              onChanged: (val) => item.label = val,
+              icon: const Icon(Icons.add),
+              label: const Text('Add item'),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 2,
-            child: TextFormField(
-              initialValue: (item.priceMinor / 100).toStringAsFixed(2),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              textAlign: TextAlign.right,
-              style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
-              decoration: const InputDecoration(
-                prefixText: '₹',
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _tax,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
               ),
-              onChanged: (val) {
-                final num = double.tryParse(val) ?? 0.0;
-                setState(() {
-                  item.priceMinor = (num * 100).round();
-                });
-              },
+              decoration: InputDecoration(
+                labelText: 'Tax (${widget.receipt.currency})',
+              ),
+              validator: (v) => _priceValidator(v, allowZero: true),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.creamSoft),
-            onPressed: () => _removeItem(index),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ],
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _service,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Service charge / tip (${widget.receipt.currency})',
+              ),
+              validator: (v) => _priceValidator(v, allowZero: true),
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _printedTotal,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Printed bill total (${widget.receipt.currency})',
+                helperText:
+                    'Correct this if the scanner read the total incorrectly.',
+              ),
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? null : _priceValidator(v),
+            ),
+            const SizedBox(height: 16),
+            ReceiptTotals(receipt: widget.receipt),
+            if (_error != null)
+              Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: widget.receipt.items.every((i) => i.isAdjustment)
+                  ? null
+                  : _continue,
+              child: const Text('Choose who shares each item'),
+            ),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
 }

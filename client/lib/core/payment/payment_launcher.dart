@@ -1,39 +1,59 @@
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
+import '../domain/money.dart';
+
+enum UpiApp {
+  googlePay('Google Pay', 'com.google.android.apps.nbu.paisa.user'),
+  phonePe('PhonePe', 'com.phonepe.app'),
+  paytm('Paytm', 'net.one97.paytm'),
+  other('Other UPI app', null);
+
+  const UpiApp(this.label, this.packageName);
+  final String label;
+  final String? packageName;
+}
 
 class PaymentLauncher {
-  /// Generates a standardized UPI Intent URI for Google Pay, PhonePe, Paytm, etc.
+  static const _channel = MethodChannel('tripwallet/payments');
+
+  // Checks the address format only; bank ownership is checked in the UPI app.
+  static bool validVpa(String value) =>
+      RegExp(r'^[A-Za-z0-9._-]{2,256}@[A-Za-z0-9.-]{2,64}$').hasMatch(value);
+
   static String buildUpiUri({
     required String payeeVpa,
     required String payeeName,
     required int amountMinor,
     String? note,
   }) {
-    final amountMajor = (amountMinor / 100).toStringAsFixed(2);
-    final cleanNote = Uri.encodeComponent(note ?? 'TripWallet Settlement');
-    final cleanName = Uri.encodeComponent(payeeName);
-    return 'upi://pay?pa=$payeeVpa&pn=$cleanName&am=$amountMajor&cu=INR&tn=$cleanNote';
+    if (!validVpa(payeeVpa) || amountMinor <= 0) {
+      throw const FormatException(
+        'A valid payment address and amount are required.',
+      );
+    }
+    return Uri(
+      scheme: 'upi',
+      host: 'pay',
+      queryParameters: {
+        'pa': payeeVpa,
+        'pn': payeeName,
+        'am': decimalAmount(amountMinor, 'INR'),
+        'cu': 'INR',
+        'tn': note ?? 'TripWallet settlement',
+      },
+    ).toString();
   }
 
-  /// Generates a Revolut.me payment link.
-  static String buildRevolutUri({
-    required String username,
-    required int amountMinor,
-    String currency = 'EUR',
-  }) {
-    final amountMajor = (amountMinor / 100).toStringAsFixed(2);
-    return 'https://revolut.me/$username?amount=$amountMajor&currency=$currency';
-  }
-
-  /// Attempts to launch the payment intent URL natively.
-  /// Returns false if no handler is installed (e.g. on Linux desktop/emulator).
-  static Future<bool> launchPayment(String urlString) async {
-    final uri = Uri.parse(urlString);
+  /// Reports only whether Android opened an app, never payment success.
+  static Future<bool> launchPayment(String uri, {required UpiApp app}) async {
     try {
-      if (await canLaunchUrl(uri)) {
-        return await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
+      return await _channel.invokeMethod<bool>('openUpi', {
+            'uri': uri,
+            'package': app.packageName,
+          }) ??
+          false;
+    } on PlatformException {
       return false;
-    } catch (_) {
+    } on MissingPluginException {
       return false;
     }
   }

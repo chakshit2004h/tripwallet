@@ -1,0 +1,26 @@
+# Only settings explicitly managed by TripWallet are declared here.
+# Supabase CLI leaves all other hosted settings unchanged on config push.
+project_id = "tripwallet"
+
+[auth]
+site_url = "tripwallet://auth-callback"
+additional_redirect_urls = ["tripwallet://auth-callback"]
+
+[auth.email]
+enable_confirmations = true
+otp_length = 6
+otp_expiry = 600
+max_frequency = "1m0s"
+
+[auth.email.template.confirmation]
+subject = "Your TripWallet verification code"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.smtp]
+enabled = true
+host = "env(SMTP_HOST)"
+port = 587
+user = "env(SMTP_USER)"
+pass = "env(SMTP_PASS)"
+admin_email = "env(SMTP_ADMIN_EMAIL)"
+sender_name = "env(SMTP_SENDER_NAME)"

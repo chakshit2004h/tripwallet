@@ -1,71 +1,63 @@
-import 'dart:convert';
-import 'package:dio/dio.dart';
-import 'package:drift/drift.dart';
+import 'dart:async';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../db/app_database.dart';
-import '../db/database_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../auth/supabase_auth_service.dart';
+import '../data/app_error.dart';
+import '../data/trip_repository.dart';
 
-final syncEngineProvider = Provider<SyncEngine>((ref) {
-  final db = ref.watch(databaseProvider);
-  final dio = Dio();
-  return SyncEngine(db: db, dio: dio);
-});
+class SyncStatus {
+  final bool busy;
+  final String? error;
+  final DateTime? lastSynced;
+  const SyncStatus({this.busy = false, this.error, this.lastSynced});
+}
 
-class SyncEngine {
-  final AppDatabase db;
-  final Dio dio;
+final syncEngineProvider = StateNotifierProvider<SyncEngine, SyncStatus>((ref) =>
+  SyncEngine(ref.watch(tripRepositoryProvider), ref.watch(supabaseClientProvider)));
 
-  SyncEngine({required this.db, required this.dio});
-
-  /// Flushes all pending outbound updates for a given trip to the sync endpoint.
-  Future<bool> flushQueue({
-    required String tripId,
-    String baseUrl = 'http://127.0.0.1:8080',
-    String? clientStateVectorBase64,
-  }) async {
-    // 1. Fetch pending mutations from local SQLite queue
-    final pendingItems = await (db.select(db.outboundSyncQueue)
-          ..where((tbl) => tbl.tripId.equals(tripId) & tbl.status.equals('pending')))
-        .get();
-
-    if (pendingItems.isEmpty) {
-      return true;
-    }
-
-    // 2. Base64 encode the binary CRDT updates
-    final updatesBase64 = pendingItems
-        .map((item) => base64Encode(item.crdtUpdate))
-        .toList();
-
-    final payload = {
-      'client_state_vector': clientStateVectorBase64 ?? '',
-      'pending_updates': updatesBase64,
-    };
-
+class SyncEngine extends StateNotifier<SyncStatus> with WidgetsBindingObserver {
+  final TripRepository repository;
+  final SupabaseClient? client;
+  Timer? _timer;
+  Timer? _debounce;
+  StreamSubscription<dynamic>? _queue;
+  RealtimeChannel? _channel;
+  bool _stopped = false;
+  SyncEngine(this.repository, this.client) : super(const SyncStatus()) {
+    if (repository.userId.isEmpty || client == null) return;
+    WidgetsBinding.instance.addObserver(this);
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => sync());
+    _queue = repository.db.select(repository.db.outboundSyncQueue).watch().listen((_) => _schedule());
+    _channel = client!.channel('ledger:${repository.userId}')
+      .onPostgresChanges(event: PostgresChangeEvent.all, schema: 'public',
+        callback: (_) => _schedule())..subscribe();
+    _schedule();
+  }
+  void _schedule() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), sync);
+  }
+  Future<void> sync() async {
+    if (_stopped || state.busy) return;
+    state = SyncStatus(busy: true, lastSynced: state.lastSynced);
     try {
-      final response = await dio.post(
-        '$baseUrl/v1/trips/$tripId/sync',
-        data: payload,
-        options: Options(
-          headers: {'content-type': 'application/json'},
-          sendTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        // 3. Successfully synced: remove processed items from local queue
-        final idsToDelete = pendingItems.map((item) => item.id).toList();
-        await (db.delete(db.outboundSyncQueue)
-              ..where((tbl) => tbl.id.isIn(idsToDelete)))
-            .go();
-
-        return true;
-      }
-      return false;
-    } catch (_) {
-      // Offline / network failure: items remain safely in OutboundSyncQueue for retry
-      return false;
+      await repository.sync();
+      if (!_stopped) state = SyncStatus(lastSynced: DateTime.now());
+    } catch (e) {
+      if (!_stopped) state = SyncStatus(error: appError(e), lastSynced: state.lastSynced);
     }
+  }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) sync();
+  }
+  @override
+  void dispose() {
+    _stopped = true;
+    _timer?.cancel(); _debounce?.cancel(); _queue?.cancel();
+    if (_channel != null) client?.removeChannel(_channel!);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 }

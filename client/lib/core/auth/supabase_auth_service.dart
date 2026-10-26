@@ -2,6 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 
+// The hosted signup template sends OTP codes; allow overrides for other projects.
+final emailSignupOtpEnabledProvider = Provider<bool>(
+  (ref) => const bool.fromEnvironment('EMAIL_SIGNUP_OTP', defaultValue: true),
+);
+
 final supabaseClientProvider = Provider<SupabaseClient?>((ref) {
   try {
     return Supabase.instance.client;
@@ -83,27 +88,51 @@ class SupabaseAuthService {
     final response = await c.auth.signUp(
       email: email,
       password: password,
+      emailRedirectTo: 'tripwallet://auth-callback',
       data: {
         'display_name': displayName,
-        if (paymentVpa != null && paymentVpa.isNotEmpty) 'payment_vpa': paymentVpa,
+        if (paymentVpa != null && paymentVpa.isNotEmpty)
+          'payment_vpa': paymentVpa,
       },
     );
 
-    // If user created, ensure profiles table has display name and VPA
-    if (response.user != null) {
-      try {
-        await c.from('profiles').upsert({
-          'id': response.user!.id,
-          'email': email,
-          'display_name': displayName,
-          if (paymentVpa != null && paymentVpa.isNotEmpty) 'payment_vpa': paymentVpa,
-        });
-      } catch (_) {
-        // Handled by SQL trigger if available
-      }
+    // Supabase can return an obfuscated user for an already-confirmed email.
+    // No confirmation is sent in that case, so do not open the OTP screen.
+    if (response.session == null &&
+        response.user?.identities?.isEmpty == true) {
+      throw const AuthException(
+        'This email is already registered. Sign in instead, or use Forgot password.',
+        code: 'user_already_exists',
+      );
     }
-
     return response;
+  }
+
+  Future<AuthResponse> verifySignupCode({
+    required String email,
+    required String code,
+  }) async {
+    final c = client;
+    if (c == null) throw StateError('Cloud connection is not configured.');
+    final response = await c.auth.verifyOTP(
+      email: email.trim(),
+      token: code.trim(),
+      type: OtpType.email,
+    );
+    if (response.session == null) {
+      throw StateError('Verification did not finish. Please try again.');
+    }
+    return response;
+  }
+
+  Future<void> resendSignupCode(String email) async {
+    final c = client;
+    if (c == null) throw StateError('Cloud connection is not configured.');
+    await c.auth.resend(
+      email: email.trim(),
+      type: OtpType.signup,
+      emailRedirectTo: 'tripwallet://auth-callback',
+    );
   }
 
   Future<AuthResponse> signIn({
@@ -113,10 +142,7 @@ class SupabaseAuthService {
     final c = client;
     if (c == null) throw Exception('Supabase client not initialized');
 
-    return await c.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
+    return await c.auth.signInWithPassword(email: email, password: password);
   }
 
   Future<void> signOut() async {
@@ -157,7 +183,9 @@ class SupabaseAuthService {
   }) async {
     final user = currentUser;
     final c = client;
-    if (user == null || c == null) return;
+    if (user == null || c == null) {
+      throw StateError('Sign in to update your profile.');
+    }
 
     final updates = <String, dynamic>{
       'updated_at': DateTime.now().toIso8601String(),

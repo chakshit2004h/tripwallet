@@ -1,378 +1,140 @@
-import 'dart:convert';
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/db/app_database.dart';
-import '../../../core/db/database_provider.dart';
+import '../../../core/data/app_error.dart';
+import '../../../core/data/trip_repository.dart';
+import '../../../core/domain/money.dart';
 import '../../../core/domain/proration_engine.dart';
-import '../../../core/sync/sync_engine.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/ledger_widgets.dart';
 import '../domain/receipt_models.dart';
-import '../data/supabase_expenses_service.dart';
 import 'item_claim_screen.dart';
+import 'receipt_totals.dart';
 
 class SplitConfirmScreen extends ConsumerStatefulWidget {
   final ReceiptData receipt;
   final List<MemberProfile> members;
   final Map<String, ClaimAllocation> allocations;
-
   const SplitConfirmScreen({
     super.key,
     required this.receipt,
     required this.members,
     required this.allocations,
   });
-
   @override
   ConsumerState<SplitConfirmScreen> createState() => _SplitConfirmScreenState();
 }
 
 class _SplitConfirmScreenState extends ConsumerState<SplitConfirmScreen> {
-  late String _payerId;
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _payerId = widget.receipt.payerMemberId;
-  }
-
-  Future<void> _saveAndSync() async {
-    setState(() => _isSaving = true);
-    final db = ref.read(databaseProvider);
-    final syncEngine = ref.read(syncEngineProvider);
-
+  late String _payer =
+      widget.members.any((m) => m.id == widget.receipt.payerMemberId)
+      ? widget.receipt.payerMemberId
+      : widget.members.first.id;
+  bool _busy = false;
+  String? _error;
+  Future<void> _save() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      // 1. Insert local expense
-      await db.into(db.localExpenses).insertOnConflictUpdate(
-            LocalExpensesCompanion(
-              id: drift.Value(widget.receipt.id),
-              tripId: drift.Value(widget.receipt.tripId),
-              title: drift.Value(widget.receipt.title),
-              amountMinor: drift.Value(widget.receipt.totalMinor),
-              currency: drift.Value(widget.receipt.currency),
-              paidByMemberId: drift.Value(_payerId),
-              splitMethod: const drift.Value('itemized'),
-              taxMinor: drift.Value(widget.receipt.taxMinor),
-              serviceChargeMinor: drift.Value(widget.receipt.serviceChargeMinor),
-              createdAt: drift.Value(DateTime.now()),
-            ),
+      final receipt = widget.receipt;
+      final shares = receiptAllocations(receipt, _payer, widget.members);
+      await ref
+          .read(tripRepositoryProvider)
+          .saveExpense(
+            id: receipt.id,
+            tripId: receipt.tripId,
+            title: receipt.title,
+            amountMinor: receipt.totalMinor,
+            payerId: _payer,
+            splits: {for (final e in shares.entries) e.key: e.value.totalMinor},
+            category: 'food',
+            splitMethod: 'itemized',
+            taxMinor: receipt.taxMinor,
+            serviceChargeMinor: receipt.serviceChargeMinor,
+            items: receipt.items
+                .map(
+                  (i) => <String, dynamic>{
+                    'id': i.id,
+                    'label': i.label,
+                    'price_minor': i.priceMinor,
+                    'confidence': i.confidence,
+                    'member_ids': receiptItemClaims(receipt, i).toList(),
+                  },
+                )
+                .toList(),
           );
-
-      // 2. Insert line items & claims
-      for (final item in widget.receipt.items) {
-        await db.into(db.localLineItems).insertOnConflictUpdate(
-              LocalLineItemsCompanion(
-                id: drift.Value(item.id),
-                expenseId: drift.Value(widget.receipt.id),
-                label: drift.Value(item.label),
-                priceMinor: drift.Value(item.priceMinor),
-                ocrConfidence: drift.Value(item.confidence),
-              ),
-            );
-
-        final claimCount = item.claimedMemberIds.length;
-        if (claimCount > 0) {
-          final fraction = 1.0 / claimCount;
-          for (final memberId in item.claimedMemberIds) {
-            await db.into(db.localItemClaims).insertOnConflictUpdate(
-                  LocalItemClaimsCompanion(
-                    id: drift.Value('${item.id}_$memberId'),
-                    lineItemId: drift.Value(item.id),
-                    memberId: drift.Value(memberId),
-                    shareFraction: drift.Value(fraction),
-                  ),
-                );
-          }
-        }
-      }
-
-      // 3. Enqueue into OutboundSyncQueue
-      final mutationPayload = utf8.encode(
-        '{"mutation": "add_itemized_expense", "expense_id": "${widget.receipt.id}", "title": "${widget.receipt.title}", "amount_minor": ${widget.receipt.totalMinor}}',
-      );
-
-      await db.into(db.outboundSyncQueue).insert(
-            OutboundSyncQueueCompanion(
-              tripId: drift.Value(widget.receipt.tripId),
-              crdtUpdate: drift.Value(mutationPayload),
-              status: const drift.Value('pending'),
-              createdAt: drift.Value(DateTime.now()),
-            ),
-          );
-
-      // 4. Trigger background flush
-      syncEngine.flushQueue(tripId: widget.receipt.tripId);
-
-      // 5. Sync directly to Supabase cloud
-      try {
-        final expenseService = ref.read(supabaseExpensesServiceProvider);
-        final lineItemsList = widget.receipt.items.map((it) => {
-          'label': it.label,
-          'price_minor': it.priceMinor,
-          'confidence': it.confidence,
-          'claimed_by_user_ids': it.claimedMemberIds,
-        }).toList();
-
-        await expenseService.addExpense(
-          tripId: widget.receipt.tripId,
-          title: widget.receipt.title,
-          amountMinor: widget.receipt.totalMinor,
-          category: 'food',
-          currency: widget.receipt.currency,
-          paidByUserId: _payerId,
-          splitMethod: 'itemized',
-          taxMinor: widget.receipt.taxMinor,
-          serviceChargeMinor: widget.receipt.serviceChargeMinor,
-          lineItems: lineItemsList,
-        );
-      } catch (e) {
-        debugPrint('Supabase addExpense note: $e');
-      }
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Expense "${widget.receipt.title}" saved & queued for sync!'),
-          backgroundColor: AppColors.green,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-
-      // Return to TripDashboardScreen
-      context.go('/trip/${widget.receipt.tripId}');
+      if (mounted) context.go('/trip/${receipt.tripId}');
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error saving expense: $e')),
-      );
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = appError(e);
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final shares = receiptAllocations(widget.receipt, _payer, widget.members);
+    final currency = widget.receipt.currency;
     return Scaffold(
-      backgroundColor: AppColors.card,
-      appBar: AppBar(
-        title: Text('Confirm Split', style: AppTypography.titleMedium),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // Header Card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.paper,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.line),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.receipt.title, style: AppTypography.titleMedium),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Text(
-                            'Grand Total: ',
-                            style: AppTypography.caption.copyWith(color: AppColors.creamSoft),
-                          ),
-                          Text(
-                            '₹${(widget.receipt.totalMinor / 100).toStringAsFixed(2)}',
-                            style: AppTypography.titleMedium.copyWith(
-                              color: AppColors.coral,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Payer Selection
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.paper,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.line),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('WHO PAID THE BILL?', style: AppTypography.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1)),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: widget.members.map((member) {
-                          final isSelected = member.id == _payerId;
-                          return Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _payerId = member.id),
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? member.color.withOpacity(0.15) : AppColors.card,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isSelected ? member.color : AppColors.line,
-                                    width: isSelected ? 1.5 : 1,
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 12,
-                                      backgroundColor: member.color,
-                                      child: Text(
-                                        member.initial,
-                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      member.name,
-                                      style: AppTypography.caption.copyWith(
-                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                        color: isSelected ? AppColors.cream : AppColors.creamSoft,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Breakdown per member
-                Text('INDIVIDUAL MEMBER SHARES', style: AppTypography.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1)),
-                const SizedBox(height: 10),
-
-                ...widget.members.map((member) {
-                  final alloc = widget.allocations[member.id];
-                  final totalMinor = alloc?.totalMinor ?? 0;
-                  final subtotalMinor = alloc?.subtotalMinor ?? 0;
-                  final taxMinor = alloc?.taxMinor ?? 0;
-                  final serviceMinor = alloc?.serviceChargeMinor ?? 0;
-                  final isPayer = member.id == _payerId;
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.line),
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 18,
-                          backgroundColor: member.color,
-                          child: Text(
-                            member.initial,
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 13),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(member.name, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
-                                  if (isPayer) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.coral.withOpacity(0.2),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        'PAID',
-                                        style: AppTypography.caption.copyWith(fontSize: 9, color: AppColors.coral, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Items: ₹${(subtotalMinor / 100).toStringAsFixed(0)} · Tax: +₹${(taxMinor / 100).toStringAsFixed(0)} · Svc: +₹${(serviceMinor / 100).toStringAsFixed(0)}',
-                                style: AppTypography.caption.copyWith(color: AppColors.creamSoft, fontSize: 11),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          '₹${(totalMinor / 100).toStringAsFixed(2)}',
-                          style: AppTypography.titleMedium.copyWith(
-                            color: AppColors.green,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ],
+      appBar: AppBar(title: const Text('Confirm split')),
+      body: ContentWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text(widget.receipt.title, style: AppTypography.titleLarge),
+            const SizedBox(height: 12),
+            Text(
+              formatMoney(widget.receipt.totalMinor, currency),
+              style: AppTypography.display,
             ),
-          ),
-
-          // Bottom Action
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            decoration: const BoxDecoration(
-              color: AppColors.paper,
-              border: Border(top: BorderSide(color: AppColors.line)),
+            const SizedBox(height: 8),
+            ReceiptTotals(receipt: widget.receipt),
+            const SizedBox(height: 28),
+            DropdownButtonFormField<String>(
+              initialValue: _payer,
+              decoration: const InputDecoration(
+                labelText: 'Who paid the bill?',
+              ),
+              items: widget.members
+                  .map(
+                    (m) => DropdownMenuItem(value: m.id, child: Text(m.name)),
+                  )
+                  .toList(),
+              onChanged: (v) => setState(() => _payer = v!),
             ),
-            child: SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _isSaving ? null : _saveAndSync,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.coral,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            const SizedBox(height: 24),
+            Text('Everyone’s share', style: AppTypography.titleMedium),
+            const SizedBox(height: 12),
+            ...widget.members.map(
+              (m) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(m.name),
+                subtitle: Text(
+                  '${m.id == _payer ? 'Paid the bill · ' : ''}Tax ${formatMoney(shares[m.id]?.taxMinor ?? 0, currency)} · Round-off ${formatMoney(shares[m.id]?.adjustmentMinor ?? 0, currency)}',
                 ),
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.cloud_upload_rounded, size: 20),
-                          const SizedBox(width: 8),
-                          Text('Save & Sync Expense', style: AppTypography.button),
-                        ],
-                      ),
+                trailing: Text(
+                  formatMoney(shares[m.id]?.totalMinor ?? 0, currency),
+                ),
               ),
             ),
-          ),
-        ],
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(_error!),
+              ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _busy ? null : _save,
+              child: Text(_busy ? 'Saving…' : 'Save expense'),
+            ),
+          ],
+        ),
       ),
     );
   }

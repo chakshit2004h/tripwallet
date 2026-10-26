@@ -1,115 +1,106 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/ledger_widgets.dart';
 
 class InviteShareScreen extends StatelessWidget {
   final String tripId;
   final String inviteCode;
-
   const InviteShareScreen({
     super.key,
-    this.tripId = 'demo-trip',
-    this.inviteCode = '9f2k4',
+    required this.tripId,
+    required this.inviteCode,
   });
-
   @override
   Widget build(BuildContext context) {
-    final inviteUrl = 'tripwallet.app/j/$inviteCode';
-
+    final link = 'tripwallet://join?code=$inviteCode';
     return Scaffold(
-      backgroundColor: AppColors.card,
-      appBar: AppBar(
-        title: Text('Invite', style: AppTypography.titleMedium),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'Invite your crew',
-                style: AppTypography.titleLarge,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Anyone with this link joins instantly, no account needed.',
-                textAlign: TextAlign.center,
-                style: AppTypography.bodySmall,
-              ),
-              const SizedBox(height: 24),
-
-              // QR Card matching Step 5 (150x150)
-              Container(
-                width: 150,
-                height: 150,
+      appBar: AppBar(title: const Text('Invite friends')),
+      body: ContentWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text(
+              'Better with your crew.',
+              style: AppTypography.display,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Friends can open Join a trip in TripWallet and scan this QR code or enter the invite code.',
+              style: AppTypography.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.paper,
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.line),
                 ),
-                child: const Center(
-                  child: Icon(Icons.qr_code_2_rounded, size: 88, color: AppColors.inkText),
+                child: QrImageView(
+                  data: link,
+                  size: 200,
+                  backgroundColor: Colors.white,
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Link row
-              InkWell(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: 'https://$inviteUrl'));
+            ),
+            const SizedBox(height: 24),
+            SelectableText(
+              inviteCode,
+              style: AppTypography.display.copyWith(letterSpacing: 4),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: inviteCode));
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Link copied!')),
+                    const SnackBar(content: Text('Invite code copied')),
                   );
-                },
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                  decoration: BoxDecoration(
-                    color: AppColors.paper,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          inviteUrl,
-                          style: AppTypography.bodySmall.copyWith(color: AppColors.inkSoft),
+                }
+              },
+              icon: const Icon(Icons.copy_outlined),
+              label: const Text('Copy invite code'),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  await SharePlus.instance.share(
+                    ShareParams(
+                      text:
+                          'Join my trip on TripWallet! Open the app, choose Join a trip, and enter $inviteCode.\n$link',
+                    ),
+                  );
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Sharing is unavailable. Copy the invite code instead.',
                         ),
                       ),
-                      const Icon(Icons.copy_rounded, size: 16, color: AppColors.inkSoft),
-                    ],
-                  ),
-                ),
-              ),
-
-              const Spacer(),
-
-              // Primary Share Button
-              ElevatedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Shared to WhatsApp: https://$inviteUrl')),
-                  );
-                },
-                icon: const Icon(Icons.send_rounded, size: 16),
-                label: const Text('Share to WhatsApp'),
-              ),
-              const SizedBox(height: 10),
-
-              // Open Trip Dashboard button
-              OutlinedButton(
-                onPressed: () => context.go('/trip/$tripId'),
-                child: const Text('Open trip dashboard'),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.ios_share),
+              label: const Text('Share invite'),
+            ),
+            const SizedBox(height: 20),
+            TextButton(
+              onPressed: () => context.go('/trip/$tripId'),
+              child: const Text('Open trip dashboard →'),
+            ),
+          ],
         ),
       ),
     );

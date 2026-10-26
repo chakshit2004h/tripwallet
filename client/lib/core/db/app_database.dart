@@ -9,6 +9,7 @@ part 'app_database.g.dart';
 class LocalTrips extends Table {
   TextColumn get id => text()();
   TextColumn get inviteCode => text()();
+  TextColumn get createdBy => text().withDefault(const Constant(''))();
   TextColumn get name => text()();
   DateTimeColumn get startDate => dateTime().nullable()();
   DateTimeColumn get endDate => dateTime().nullable()();
@@ -22,6 +23,7 @@ class LocalTrips extends Table {
 }
 
 class LocalMembers extends Table {
+  TextColumn get userId => text().withDefault(const Constant(''))();
   TextColumn get id => text()();
   TextColumn get tripId => text()();
   TextColumn get displayName => text()();
@@ -34,6 +36,8 @@ class LocalMembers extends Table {
 }
 
 class LocalExpenses extends Table {
+  TextColumn get category => text().withDefault(const Constant('other'))();
+  TextColumn get createdBy => text().withDefault(const Constant(''))();
   TextColumn get id => text()();
   TextColumn get tripId => text()();
   TextColumn get title => text()();
@@ -70,7 +74,15 @@ class LocalItemClaims extends Table {
   Set<Column> get primaryKey => {id};
 }
 
-/// Durable offline queue for CRDT mutations awaiting server sync.
+class LocalExpenseSplits extends Table {
+  TextColumn get expenseId => text()();
+  TextColumn get memberId => text()();
+  IntColumn get amountMinor => integer()();
+  @override
+  Set<Column> get primaryKey => {expenseId, memberId};
+}
+
+/// Durable JSON commands awaiting acknowledgement from Supabase.
 class OutboundSyncQueue extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get tripId => text()();
@@ -126,6 +138,7 @@ class LocalAlerts extends Table {
   LocalTrips,
   LocalMembers,
   LocalExpenses,
+  LocalExpenseSplits,
   LocalLineItems,
   LocalItemClaims,
   LocalSettlements,
@@ -134,17 +147,24 @@ class LocalAlerts extends Table {
   LocalAlerts,
 ])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase({String accountId = 'signed-out'}) : super(_openConnection(accountId));
 
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) => m.createAll(),
         onUpgrade: (m, from, to) async {
+          if (from < 3) {
+            await m.addColumn(localTrips, localTrips.createdBy);
+            await m.addColumn(localMembers, localMembers.userId);
+            await m.addColumn(localExpenses, localExpenses.category);
+            await m.addColumn(localExpenses, localExpenses.createdBy);
+            await m.createTable(localExpenseSplits);
+          }
           if (from < 2) {
             await m.createTable(localItineraryStops);
             await m.createTable(localAlerts);
@@ -153,10 +173,10 @@ class AppDatabase extends _$AppDatabase {
       );
 }
 
-LazyDatabase _openConnection() {
+LazyDatabase _openConnection(String accountId) {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'tripwallet.sqlite'));
+    final file = File(p.join(dbFolder.path, 'tripwallet_$accountId.sqlite'));
     return NativeDatabase.createInBackground(file);
   });
 }

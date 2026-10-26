@@ -1,730 +1,372 @@
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/auth/supabase_auth_service.dart';
+import '../../../core/data/trip_repository.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/db/database_provider.dart';
 import '../../../core/domain/debt_simplifier.dart';
+import '../../../core/domain/money.dart';
+import '../../../core/sync/sync_engine.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/ledger_widgets.dart';
 import '../../../core/widgets/sync_status_banner.dart';
-import 'trip_speed_dial_fab.dart';
 import '../../balances_settlement/presentation/settle_sheet.dart';
-import '../../expenses/data/supabase_expenses_service.dart';
-import '../../expenses/presentation/receipt_camera_screen.dart';
+import '../../expenses/presentation/add_expense_sheet.dart';
 import '../../itinerary/presentation/itinerary_tab_view.dart';
-import '../../paywall/presentation/pass_active_screen.dart';
-import '../../trips/data/supabase_trips_service.dart';
 import 'trip_summary_sheet.dart';
 
 class TripDashboardScreen extends ConsumerStatefulWidget {
   final String tripId;
-
   const TripDashboardScreen({super.key, required this.tripId});
-
   @override
-  ConsumerState<TripDashboardScreen> createState() => _TripDashboardScreenState();
+  ConsumerState<TripDashboardScreen> createState() =>
+      _TripDashboardScreenState();
 }
 
 class _TripDashboardScreenState extends ConsumerState<TripDashboardScreen> {
-  int _activeTabIndex = 0; // 0: Expenses, 1: Balances, 2: Itinerary, 3: Pass
-  bool _isSyncing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _syncTripData();
-    });
-  }
-
-  Future<void> _syncTripData() async {
-    if (_isSyncing) return;
-    setState(() => _isSyncing = true);
-
-    try {
-      final tripsService = ref.read(supabaseTripsServiceProvider);
-      final expensesService = ref.read(supabaseExpensesServiceProvider);
-      final db = ref.read(databaseProvider);
-
-      // 1. Members
-      final members = await tripsService.fetchTripMembers(widget.tripId);
-      for (final m in members) {
-        await db.into(db.localMembers).insertOnConflictUpdate(
-              LocalMembersCompanion(
-                id: drift.Value(m.id),
-                tripId: drift.Value(m.tripId),
-                displayName: drift.Value(m.displayName),
-                role: drift.Value(m.role),
-              ),
-            );
-      }
-
-      // 2. Expenses
-      final expenses = await expensesService.fetchExpenses(widget.tripId);
-      for (final e in expenses) {
-        await db.into(db.localExpenses).insertOnConflictUpdate(
-              LocalExpensesCompanion(
-                id: drift.Value(e.id),
-                tripId: drift.Value(e.tripId),
-                title: drift.Value(e.title),
-                amountMinor: drift.Value(e.amountMinor),
-                currency: drift.Value(e.currency),
-                paidByMemberId: drift.Value(e.paidByUserId),
-                splitMethod: drift.Value(e.splitMethod),
-                taxMinor: drift.Value(e.taxMinor),
-                serviceChargeMinor: drift.Value(e.serviceChargeMinor),
-                createdAt: drift.Value(e.createdAt),
-              ),
-            );
-      }
-
-      // 3. Settlements
-      final settlements = await expensesService.fetchSettlements(widget.tripId);
-      for (final s in settlements) {
-        await db.into(db.localSettlements).insertOnConflictUpdate(
-              LocalSettlementsCompanion(
-                id: drift.Value(s.id),
-                tripId: drift.Value(s.tripId),
-                fromMemberId: drift.Value(s.fromUserId),
-                toMemberId: drift.Value(s.toUserId),
-                amountMinor: drift.Value(s.amountMinor),
-                currency: drift.Value(s.currency),
-                method: drift.Value(s.method),
-                status: drift.Value(s.status),
-                createdAt: drift.Value(s.createdAt),
-              ),
-            );
-      }
-    } catch (e) {
-      debugPrint('Trip data sync note: $e');
-    } finally {
-      if (mounted) setState(() => _isSyncing = false);
-    }
-  }
-
-  String _formatDates(DateTime? start, DateTime? end) {
-    if (start == null || end == null) return 'Active trip';
-    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    if (start.month == end.month) {
-      return '${start.day}–${end.day} ${months[start.month - 1]}';
-    }
-    return '${start.day} ${months[start.month - 1]} – ${end.day} ${months[end.month - 1]}';
-  }
-
+  int _tab = 0;
   @override
   Widget build(BuildContext context) {
-    final db = ref.watch(databaseProvider);
-
-    return StreamBuilder<LocalTrip?>(
-      stream: (db.select(db.localTrips)..where((t) => t.id.equals(widget.tripId))).watchSingleOrNull(),
-      builder: (context, tripSnapshot) {
-        final trip = tripSnapshot.data;
-        final tripTitle = trip?.name ?? 'Trip';
-        final tripDates = _formatDates(trip?.startDate, trip?.endDate);
-
-        return StreamBuilder<List<LocalMember>>(
-          stream: (db.select(db.localMembers)..where((m) => m.tripId.equals(widget.tripId))).watch(),
-          builder: (context, memberSnapshot) {
-            final members = memberSnapshot.data ?? [];
-            final memberCount = members.isNotEmpty ? members.length : 1;
-
-            return Scaffold(
-              backgroundColor: AppColors.card,
-              appBar: AppBar(
-                backgroundColor: AppColors.card,
-                elevation: 0,
-                title: InkWell(
-                  onTap: () => context.push('/trips'),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                tripTitle,
-                                style: AppTypography.titleLarge.copyWith(fontSize: 18),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.inkSoft),
-                          ],
-                        ),
-                        InkWell(
-                          onTap: () => context.push('/trip/${widget.tripId}/members'),
-                          child: Text(
-                            '$memberCount member${memberCount == 1 ? '' : 's'} · $tripDates',
-                            style: AppTypography.caption,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                actions: [
-                  // Refresh indicator
-                  IconButton(
-                    tooltip: 'Sync with cloud',
-                    icon: _isSyncing
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.coral),
-                          )
-                        : const Icon(Icons.sync_rounded, size: 20),
-                    onPressed: _syncTripData,
-                  ),
-                  // Summary Icon
-                  IconButton(
-                    tooltip: 'Trip Summary',
-                    icon: const Icon(Icons.bar_chart_rounded, size: 22),
-                    onPressed: () => TripSummarySheet.show(context, tripId: widget.tripId),
-                  ),
-                  // More options overflow menu
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded, size: 22),
-                    tooltip: 'More options',
-                    onSelected: (value) {
-                      if (value == 'settings') {
-                        context.push('/trip/${widget.tripId}/settings');
-                      } else if (value == 'alerts') {
-                        context.push('/alerts');
-                      } else if (value == 'profile') {
-                        context.push('/profile');
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'settings',
-                        child: Row(
-                          children: [
-                            Icon(Icons.settings_outlined, size: 18),
-                            SizedBox(width: 10),
-                            Text('Trip Settings'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'alerts',
-                        child: Row(
-                          children: [
-                            Icon(Icons.notifications_none_rounded, size: 18),
-                            SizedBox(width: 10),
-                            Text('Activity & Alerts'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'profile',
-                        child: Row(
-                          children: [
-                            Icon(Icons.person_outline_rounded, size: 18),
-                            SizedBox(width: 10),
-                            Text('Profile & UPI'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              body: Stack(
-                children: [
-                  Column(
-                    children: [
-                      SyncStatusBanner(tripId: widget.tripId),
-                      Expanded(
-                        child: _buildActiveContent(members, tripTitle),
-                      ),
-                    ],
-                  ),
-                  // Upward Floating Speed Dial (Bottom Right)
-                  TripSpeedDialFab(
-                    onScanCamera: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ReceiptCameraScreen(tripId: widget.tripId),
-                        ),
-                      );
-                    },
-                    onAddExpense: () => context.push('/expense/manual?tripId=${widget.tripId}'),
-                  ),
-                ],
-              ),
-              bottomNavigationBar: _buildBottomNav(),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildActiveContent(List<LocalMember> members, String tripName) {
-    switch (_activeTabIndex) {
-      case 0:
-        return _buildExpensesTab(members);
-      case 1:
-        return _buildBalancesTab(members);
-      case 2:
-        return ItineraryTabView(tripId: widget.tripId);
-      case 3:
-      default:
-        return PassActiveScreen(tripName: tripName);
-    }
-  }
-
-  Widget _buildExpensesTab(List<LocalMember> members) {
-    final db = ref.watch(databaseProvider);
-    final auth = ref.watch(supabaseAuthServiceProvider);
-
-    return StreamBuilder<List<LocalExpense>>(
-      stream: (db.select(db.localExpenses)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
-      builder: (context, snapshot) {
-        final expenses = snapshot.data ?? [];
-        final totalMinor = expenses.fold<int>(0, (sum, e) => sum + e.amountMinor);
-
-        return StreamBuilder<List<LocalSettlement>>(
-          stream: (db.select(db.localSettlements)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
-          builder: (context, settlementSnapshot) {
-            final settlements = settlementSnapshot.data ?? [];
-
-            // Find current user's local member representation
-            final currentUserId = auth.currentUser?.id;
-            final youMember = members.firstWhere(
-              (m) =>
-                  (currentUserId != null && m.id == currentUserId) ||
-                  m.displayName.toLowerCase() == 'you' ||
-                  m.displayName.toLowerCase() == auth.currentDisplayName.toLowerCase(),
-              orElse: () => members.isNotEmpty ? members.first : const LocalMember(id: 'me', tripId: '', displayName: 'You', role: 'member'),
-            );
-            final youMemberId = youMember.id;
-
-            var youBalanceMinor = 0;
-            if (expenses.isNotEmpty) {
-              final memberCount = members.isNotEmpty ? members.length : 1;
-              for (final e in expenses) {
-                final share = e.amountMinor ~/ memberCount;
-                if (e.paidByMemberId == youMemberId) {
-                  youBalanceMinor += (e.amountMinor - share);
-                } else {
-                  youBalanceMinor -= share;
-                }
-              }
-              for (final s in settlements) {
-                if (s.status == 'confirmed') {
-                  if (s.fromMemberId == youMemberId) youBalanceMinor += s.amountMinor;
-                  if (s.toMemberId == youMemberId) youBalanceMinor -= s.amountMinor;
-                }
-              }
-            }
-
-            final totalSpentFormatted = '₹${(totalMinor / 100).toStringAsFixed(0)}';
-            final youOwedFormatted = youBalanceMinor >= 0
-                ? '₹${(youBalanceMinor / 100).toStringAsFixed(0)}'
-                : '-₹${((-youBalanceMinor) / 100).toStringAsFixed(0)}';
-
-            return RefreshIndicator(
-              onRefresh: _syncTripData,
-              color: AppColors.coral,
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 88),
-                children: [
-                  // Stat Cards Grid
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            title: 'Total spent',
-                            value: totalSpentFormatted,
-                            valueColor: AppColors.inkText,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildStatCard(
-                            title: youBalanceMinor >= 0 ? "You're owed" : 'You owe',
-                            value: youOwedFormatted,
-                            valueColor: youBalanceMinor >= 0 ? AppColors.green : AppColors.coral,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // RECENT label
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'RECENT',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.inkSoft,
-                        letterSpacing: 0.05,
-                      ),
-                    ),
-                  ),
-
-                  // Expense Rows
-                  if (expenses.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            const Icon(Icons.receipt_long_outlined, size: 40, color: AppColors.inkSoft),
-                            const SizedBox(height: 12),
-                            Text('No expenses logged yet.', style: AppTypography.titleMedium.copyWith(fontSize: 14)),
-                            const SizedBox(height: 4),
-                            Text('Tap + Scan bill below to log your first expense.', style: AppTypography.bodySmall, textAlign: TextAlign.center),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    ...expenses.map((e) {
-                      final payerMember = members.firstWhere(
-                        (m) => m.id == e.paidByMemberId,
-                        orElse: () => LocalMember(
-                          id: e.paidByMemberId,
-                          tripId: widget.tripId,
-                          displayName: e.paidByMemberId == youMemberId ? 'You' : 'Member',
-                          role: 'member',
-                        ),
-                      );
-
-                      IconData icon = Icons.restaurant_rounded;
-                      final titleLower = e.title.toLowerCase();
-                      if (titleLower.contains('cab') || titleLower.contains('taxi') || titleLower.contains('uber')) {
-                        icon = Icons.directions_car_rounded;
-                      } else if (titleLower.contains('scooter') || titleLower.contains('bike') || titleLower.contains('fuel')) {
-                        icon = Icons.two_wheeler_rounded;
-                      } else if (titleLower.contains('hotel') || titleLower.contains('resort') || titleLower.contains('stay')) {
-                        icon = Icons.hotel_rounded;
-                      } else if (titleLower.contains('flight') || titleLower.contains('train')) {
-                        icon = Icons.flight_takeoff_rounded;
-                      }
-
-                      return InkWell(
-                        onTap: () => context.push('/expense/${e.id}'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: const BoxDecoration(
-                            border: Border(bottom: BorderSide(color: AppColors.line, width: 0.5)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: BoxDecoration(
-                                  color: AppColors.paper,
-                                  borderRadius: BorderRadius.circular(9),
-                                ),
-                                child: Icon(icon, color: AppColors.inkSoft, size: 16),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(e.title, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                                    const SizedBox(height: 2),
-                                    Text('${payerMember.displayName} · split ${e.splitMethod}', style: AppTypography.caption),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                '₹${(e.amountMinor / 100).toStringAsFixed(0)}',
-                                style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildBalancesTab(List<LocalMember> members) {
-    final db = ref.watch(databaseProvider);
-    final auth = ref.watch(supabaseAuthServiceProvider);
-
-    return StreamBuilder<List<LocalExpense>>(
-      stream: (db.select(db.localExpenses)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
-      builder: (context, expSnapshot) {
-        return StreamBuilder<List<LocalSettlement>>(
-          stream: (db.select(db.localSettlements)..where((tbl) => tbl.tripId.equals(widget.tripId))).watch(),
-          builder: (context, setSnapshot) {
-            final expenses = expSnapshot.data ?? [];
-            final settlements = setSnapshot.data ?? [];
-
-            final currentUserId = auth.currentUser?.id;
-            final youMember = members.firstWhere(
-              (m) =>
-                  (currentUserId != null && m.id == currentUserId) ||
-                  m.displayName.toLowerCase() == 'you' ||
-                  m.displayName.toLowerCase() == auth.currentDisplayName.toLowerCase(),
-              orElse: () => members.isNotEmpty ? members.first : const LocalMember(id: 'me', tripId: '', displayName: 'You', role: 'member'),
-            );
-            final youMemberId = youMember.id;
-
-            // Compute net balance per member dynamically
-            final netBalances = <String, int>{};
-            for (final m in members) {
-              netBalances[m.id] = 0;
-            }
-
-            final memberCount = members.isNotEmpty ? members.length : 1;
-            for (final e in expenses) {
-              final share = e.amountMinor ~/ memberCount;
-              for (final m in members) {
-                if (m.id == e.paidByMemberId) {
-                  netBalances[m.id] = (netBalances[m.id] ?? 0) + (e.amountMinor - share);
-                } else {
-                  netBalances[m.id] = (netBalances[m.id] ?? 0) - share;
-                }
-              }
-            }
-
-            for (final s in settlements) {
-              if (s.status == 'confirmed') {
-                netBalances[s.fromMemberId] = (netBalances[s.fromMemberId] ?? 0) + s.amountMinor;
-                netBalances[s.toMemberId] = (netBalances[s.toMemberId] ?? 0) - s.amountMinor;
-              }
-            }
-
-            final simplifiedDebts = simplifyDebts(netBalances);
-
-            return RefreshIndicator(
-              onRefresh: _syncTripData,
-              color: AppColors.coral,
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 88),
-                children: [
-                  // Subheader: "Who owes who"
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                    child: Text(
-                      'Who owes who',
-                      style: AppTypography.titleMedium.copyWith(fontSize: 14),
-                    ),
-                  ),
-
-                  // Balance Rows
-                  if (simplifiedDebts.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            const Icon(Icons.check_circle_outline_rounded, size: 40, color: AppColors.green),
-                            const SizedBox(height: 12),
-                            Text('All settled up! 🎉', style: AppTypography.titleMedium.copyWith(color: AppColors.green)),
-                            const SizedBox(height: 4),
-                            Text('No outstanding balances between group members.', style: AppTypography.bodySmall, textAlign: TextAlign.center),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    ...simplifiedDebts.map((debt) {
-                      final isYouOwer = debt.fromMemberId == youMemberId;
-                      final isYouReceiver = debt.toMemberId == youMemberId;
-
-                      final fromMember = members.firstWhere(
-                        (m) => m.id == debt.fromMemberId,
-                        orElse: () => LocalMember(id: debt.fromMemberId, tripId: widget.tripId, displayName: isYouOwer ? 'You' : 'Member', role: 'member'),
-                      );
-                      final toMember = members.firstWhere(
-                        (m) => m.id == debt.toMemberId,
-                        orElse: () => LocalMember(id: debt.toMemberId, tripId: widget.tripId, displayName: isYouReceiver ? 'You' : 'Member', role: 'member'),
-                      );
-
-                      final fromName = isYouOwer ? 'You' : fromMember.displayName;
-                      final toName = isYouReceiver ? 'You' : toMember.displayName;
-
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: const BoxDecoration(
-                          border: Border(bottom: BorderSide(color: AppColors.line, width: 0.5)),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                isYouOwer
-                                    ? 'You owe $toName'
-                                    : isYouReceiver
-                                        ? "You're owed by $fromName"
-                                        : '$fromName owes $toName',
-                                style: AppTypography.bodyMedium.copyWith(
-                                  color: isYouReceiver ? AppColors.green : AppColors.inkText,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '₹${(debt.amountMinor / 100).toStringAsFixed(0)}',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: isYouReceiver ? AppColors.green : AppColors.inkText,
-                              ),
-                            ),
-                            if (isYouOwer) ...[
-                              const SizedBox(width: 10),
-                              GestureDetector(
-                                onTap: () => SettleSheet.show(
-                                  context,
-                                  tripId: widget.tripId,
-                                  fromMemberId: debt.fromMemberId,
-                                  toMemberId: debt.toMemberId,
-                                  payeeName: toName,
-                                  payeeVpa: '${toName.toLowerCase().replaceAll(' ', '')}@okhdfcbank',
-                                  amountMinor: debt.amountMinor,
-                                ),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.ink,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: const Text(
-                                    'Settle',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-                    }),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required Color valueColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.paper,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.line, width: 0.8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: AppTypography.caption),
-          const SizedBox(height: 3),
-          Text(
-            value,
-            style: AppTypography.titleMedium.copyWith(color: valueColor, fontSize: 18),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.card,
-        border: Border(
-          top: BorderSide(color: AppColors.line, width: 0.8),
+    final ledger = ref.watch(ledgerProvider);
+    return ledger.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(
+        appBar: AppBar(),
+        body: const EmptyState(
+          icon: Icons.error_outline,
+          title: 'Could not load this trip',
+          message: 'Try reopening the trip.',
         ),
       ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(
-                index: 0,
+      data: (data) {
+        final trip = data.trips.where((t) => t.id == widget.tripId).firstOrNull;
+        if (trip == null) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: const Column(
+              children: [
+                SyncStatusBanner(),
+                EmptyState(
+                  icon: Icons.luggage_outlined,
+                  title: 'Trip not available',
+                  message:
+                      'Connect to refresh your trips, or check your invite with the trip creator.',
+                ),
+              ],
+            ),
+          );
+        }
+        final members = data.members.where((m) => m.tripId == trip.id).toList();
+        return Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              tooltip: 'All trips',
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.go('/trips'),
+            ),
+            title: Text(trip.name),
+            actions: [
+              IconButton(
+                tooltip: 'Trip summary',
+                icon: const Icon(Icons.bar_chart_rounded),
+                onPressed: () =>
+                    TripSummarySheet.show(context, tripId: trip.id),
+              ),
+              IconButton(
+                tooltip: 'Trip settings',
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => context.push('/trip/${trip.id}/settings'),
+              ),
+            ],
+          ),
+          body: ContentWidth(
+            child: Column(
+              children: [
+                SyncStatusBanner(tripId: trip.id),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tripDates(trip),
+                          style: AppTypography.bodySmall,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () =>
+                            context.push('/trip/${trip.id}/members'),
+                        icon: const Icon(Icons.group_outlined, size: 18),
+                        label: Text('${members.length} crew'),
+                      ),
+                    ],
+                  ),
+                ),
+                if (trip.status == 'archived')
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text('Archived trip · your records are kept here.'),
+                  ),
+                Expanded(
+                  child: _tab == 2
+                      ? ItineraryTabView(tripId: trip.id)
+                      : RefreshIndicator(
+                          onRefresh: () =>
+                              ref.read(syncEngineProvider.notifier).sync(),
+                          child: _tab == 0
+                              ? _expenses(trip, data)
+                              : _balances(trip, data, members),
+                        ),
+                ),
+              ],
+            ),
+          ),
+          floatingActionButton: trip.status == 'active' && _tab != 2
+              ? FloatingActionButton.extended(
+                  onPressed: () =>
+                      AddExpenseSheet.show(context, tripId: trip.id),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add expense'),
+                )
+              : null,
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _tab,
+            onDestinationSelected: (i) => setState(() => _tab = i),
+            destinations: const [
+              NavigationDestination(
+                icon: Icon(Icons.receipt_long_outlined),
                 label: 'Expenses',
-                icon: Icons.account_balance_wallet_outlined,
-                activeIcon: Icons.account_balance_wallet_rounded,
               ),
-              _buildNavItem(
-                index: 1,
+              NavigationDestination(
+                icon: Icon(Icons.balance_outlined),
                 label: 'Balances',
-                icon: Icons.scale_outlined,
-                activeIcon: Icons.scale_rounded,
               ),
-              _buildNavItem(
-                index: 2,
+              NavigationDestination(
+                icon: Icon(Icons.map_outlined),
                 label: 'Itinerary',
-                icon: Icons.map_outlined,
-                activeIcon: Icons.map_rounded,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _expenses(LocalTrip trip, LedgerData data) {
+    final expenses = data.expenses.where((e) => e.tripId == trip.id).toList();
+    final total = expenses.fold(0, (int sum, e) => sum + e.amountMinor);
+    final myId = data.myMemberId(trip.id, ref.watch(accountIdProvider) ?? '');
+    int? balance;
+    try {
+      balance = data.balances(trip.id)[myId] ?? 0;
+    } catch (_) {}
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 100),
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.ink,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: AppColors.coral,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Group spending',
+                    style: AppTypography.bodyMedium.copyWith(
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                formatMoney(total, trip.baseCurrency),
+                style: AppTypography.display.copyWith(
+                  color: Colors.white,
+                  fontSize: 36,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .09),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        balance == null
+                            ? 'Your balance'
+                            : balance < 0
+                            ? 'You owe'
+                            : balance > 0
+                            ? 'You’re owed'
+                            : 'You’re all square',
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        balance == null
+                            ? 'Needs sync'
+                            : formatMoney(balance.abs(), trip.baseCurrency),
+                        style: AppTypography.titleMedium.copyWith(
+                          color: AppColors.coral,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
         ),
-      ),
+        const SizedBox(height: 28),
+        Row(
+          children: [
+            Expanded(child: Text('Expenses', style: AppTypography.titleLarge)),
+            Text('${expenses.length} expenses', style: AppTypography.caption),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (expenses.isEmpty)
+          const EmptyState(
+            icon: Icons.receipt_long_outlined,
+            title: 'Start with the first bill',
+            message:
+                'Add an expense or scan a receipt. Everyone’s share stays together here.',
+          )
+        else
+          ...expenses.map((e) => ExpenseTile(expense: e, data: data)),
+      ],
     );
   }
 
-  Widget _buildNavItem({
-    required int index,
-    required String label,
-    required IconData icon,
-    required IconData activeIcon,
-  }) {
-    final isSelected = _activeTabIndex == index;
-    final color = isSelected ? AppColors.coral : AppColors.inkSoft;
-
-    return Expanded(
-      child: InkWell(
-        onTap: () => setState(() => _activeTabIndex = index),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              color: color,
-              size: 22,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+  Widget _balances(LocalTrip trip, LedgerData data, List<LocalMember> members) {
+    Map<String, int> balances;
+    try {
+      balances = data.balances(trip.id);
+    } catch (e) {
+      return ListView(
+        children: const [
+          EmptyState(
+            icon: Icons.sync_problem,
+            title: 'Split details need syncing',
+            message:
+                'Connect and refresh to restore this trip’s exact member shares before settling.',
+          ),
+        ],
+      );
+    }
+    final debts = simplifyDebts(balances);
+    final myId = data.myMemberId(trip.id, ref.watch(accountIdProvider) ?? '');
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        Text('Who owes whom', style: AppTypography.display),
+        const SizedBox(height: 8),
+        Text(
+          'Suggested transfers to settle the group with fewer payments.',
+          style: AppTypography.bodyLarge,
+        ),
+        const SizedBox(height: 24),
+        if (debts.isEmpty)
+          EmptyState(
+            icon: Icons.check_circle_outline,
+            title: data.expenses.any((e) => e.tripId == trip.id)
+                ? 'All settled up'
+                : 'Nothing to settle yet',
+            message: 'There are no outstanding balances in this trip.',
+          ),
+        ...debts.map((debt) {
+          final payee = members
+              .where((m) => m.id == debt.toMemberId)
+              .firstOrNull;
+          final own = debt.fromMemberId == myId;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 14),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${own ? 'You' : data.memberName(debt.fromMemberId)} owe ${debt.toMemberId == myId ? 'you' : data.memberName(debt.toMemberId)}',
+                    style: AppTypography.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    formatMoney(debt.amountMinor, trip.baseCurrency),
+                    style: AppTypography.titleLarge.copyWith(
+                      color: own ? AppColors.coralDark : AppColors.green,
+                    ),
+                  ),
+                  if (own && trip.status == 'active') ...[
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () => SettleSheet.show(
+                        context,
+                        tripId: trip.id,
+                        tripName: trip.name,
+                        fromMemberId: debt.fromMemberId,
+                        toMemberId: debt.toMemberId,
+                        payeeName: payee?.displayName ?? 'Member',
+                        payeeVpa: payee?.paymentVpa ?? '',
+                        amountMinor: debt.amountMinor,
+                        currency: trip.baseCurrency,
+                      ),
+                      icon: const Icon(Icons.north_east, size: 18),
+                      label: const Text('Settle this balance'),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ],
-        ),
-      ),
+          );
+        }),
+        if (data.settlements.any((s) => s.tripId == trip.id)) ...[
+          const SizedBox(height: 20),
+          Text('Recorded payments', style: AppTypography.titleMedium),
+          const SizedBox(height: 12),
+          ...data.settlements
+              .where((s) => s.tripId == trip.id)
+              .map(
+                (s) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.check_circle_outline,
+                    color: AppColors.green,
+                  ),
+                  title: Text(
+                    '${data.memberName(s.fromMemberId)} → ${data.memberName(s.toMemberId)}',
+                  ),
+                  subtitle: Text('Reported by payer · ${s.method}'),
+                  trailing: Text(formatMoney(s.amountMinor, s.currency)),
+                ),
+              ),
+        ],
+      ],
     );
   }
 }

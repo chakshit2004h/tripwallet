@@ -1,71 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_typography.dart';
-import '../sync/sync_providers.dart';
+import '../data/trip_repository.dart';
 import '../sync/sync_engine.dart';
+import '../theme/app_colors.dart';
 
 class SyncStatusBanner extends ConsumerWidget {
-  final String tripId;
-
-  const SyncStatusBanner({super.key, required this.tripId});
-
+  final String? tripId;
+  const SyncStatusBanner({super.key, this.tripId});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pendingCountAsync = ref.watch(pendingSyncCountProvider);
+    final status = ref.watch(syncEngineProvider);
+    final count =
+        ref
+            .watch(ledgerProvider)
+            .asData
+            ?.value
+            .pending
+            .where((q) => tripId == null || q.tripId == tripId)
+            .length ??
+        0;
+    // Routine sync is silent; only show changes waiting or a failed refresh.
+    if (status.busy || (status.error == null && count == 0)) {
+      return const SizedBox.shrink();
+    }
+    return Material(
+      color: status.error == null ? AppColors.paper : AppColors.coralTint,
+      child: ListTile(
+        dense: true,
+        leading: const Icon(Icons.cloud_off_outlined, size: 20),
+        title: Text(
+          count > 0
+              ? 'Saved on your phone · waiting to share'
+              : 'Couldn’t refresh your trip',
+        ),
 
-    return pendingCountAsync.when(
-      data: (count) {
-        if (count == 0) {
-          return const SizedBox.shrink();
-        }
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: const BoxDecoration(
-            color: AppColors.card,
-            border: Border(
-              bottom: BorderSide(
-                color: Color(0x66FF5C35),
-                width: 1,
-              ),
-            ),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.cloud_queue_rounded,
-                color: AppColors.coral,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  count == 1
-                      ? 'Offline · 1 change pending sync'
-                      : 'Offline · $count changes pending sync',
-                  style: AppTypography.caption.copyWith(color: AppColors.creamSoft),
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  ref.read(syncEngineProvider).flushQueue(tripId: tripId);
-                },
-                child: Text(
-                  'Sync now',
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.coral,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+        trailing: IconButton(
+          tooltip: 'Retry sync',
+          icon: const Icon(Icons.refresh),
+          onPressed: () => ref.read(syncEngineProvider.notifier).sync(),
+        ),
+      ),
     );
   }
 }

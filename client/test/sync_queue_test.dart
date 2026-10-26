@@ -1,71 +1,74 @@
-import 'package:dio/dio.dart';
-import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tripwallet_client/core/data/trip_repository.dart';
 import 'package:tripwallet_client/core/db/app_database.dart';
-import 'package:tripwallet_client/core/sync/sync_engine.dart';
+import 'package:tripwallet_client/core/domain/money.dart';
+
+class FakeCloud implements TripCloud {
+  bool offline = true;
+  bool published = false;
+  final commands = <Map<String, dynamic>>[];
+  @override
+  Future<void> apply(Map<String, dynamic> command) async {
+    if (offline) throw StateError('Offline');
+    commands.add(command);
+  }
+  @override
+  Future<List<Map<String, dynamic>>> trips() async => [{'id': 'trip'}];
+  @override
+  Future<Map<String, dynamic>> snapshot(String id) async {
+    final command = commands.last;
+    return {
+      'trip': {'id': 'trip', 'name': 'Weekend', 'invite_code': 'ABC123',
+        'base_currency': 'INR', 'status': 'active', 'created_by': 'alice'},
+      'members': [
+        {'id': 'm1', 'user_id': 'alice', 'display_name': 'Alice', 'role': 'creator'},
+        {'id': 'm2', 'user_id': 'bob', 'display_name': 'Bob', 'role': 'member'},
+      ],
+      'expenses': published ? [{
+        'id': command['id'], 'trip_id': 'trip', 'title': command['title'],
+        'amount_minor': command['amount_minor'], 'currency': 'INR',
+        'paid_by_user_id': 'alice', 'split_method': 'equal', 'category': 'other',
+        'tax_minor': 0, 'service_charge_minor': 0,
+        'created_by_user_id': 'alice', 'created_at': '2026-10-08T00:00:00Z',
+      }] : [],
+      'splits': published ? [for (final s in command['splits'])
+        {'expense_id': command['id'], 'user_id': s['user_id'],
+          'amount_minor': s['amount_minor']}] : [],
+      'items': [], 'claims': [], 'settlements': [], 'itinerary': [],
+    };
+  }
+}
 
 void main() {
-  late AppDatabase db;
-  late Dio dio;
-  late SyncEngine syncEngine;
+  test('expense stays local until server snapshot confirms its exact ID', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final cloud = FakeCloud();
+    final repo = TripRepository(db: db, userId: 'alice', cloud: cloud);
+    await db.into(db.localTrips).insert(LocalTripsCompanion.insert(
+        id: 'trip', name: 'Weekend', inviteCode: 'ABC123'));
+    await db.into(db.localMembers).insert(LocalMembersCompanion.insert(
+        id: 'm1', tripId: 'trip', displayName: 'Alice', userId: const Value('alice')));
+    await db.into(db.localMembers).insert(LocalMembersCompanion.insert(
+        id: 'm2', tripId: 'trip', displayName: 'Bob', userId: const Value('bob')));
+    final id = await repo.saveExpense(tripId: 'trip', title: 'Cab',
+        amountMinor: 10001, payerId: 'm1',
+        splits: splitEqually(10001, ['m1', 'm2']));
+    expect((await repo.read()).balances('trip'), {'m1': 5000, 'm2': -5000});
+    await expectLater(repo.sync(), throwsStateError);
+    expect((await db.select(db.outboundSyncQueue).get()).length, 1);
 
-  setUp(() {
-    db = AppDatabase.forTesting(NativeDatabase.memory());
-    dio = Dio();
-    syncEngine = SyncEngine(db: db, dio: dio);
-  });
+    cloud.offline = false;
+    await repo.sync();
+    expect((await db.select(db.outboundSyncQueue).get()).length, 1);
+    expect((await repo.read()).expenses.single.id, id);
 
-  tearDown(() async {
+    cloud.published = true;
+    await repo.sync();
+    expect(cloud.commands.every((command) => command['id'] == id), isTrue);
+    expect(await db.select(db.outboundSyncQueue).get(), isEmpty);
+    expect((await repo.read()).balances('trip'), {'m1': 5000, 'm2': -5000});
     await db.close();
-  });
-
-  test('OutboundSyncQueue holds offline updates and persists across queries', () async {
-    // 1. User performs 2 mutations while offline
-    await db.into(db.outboundSyncQueue).insert(
-          OutboundSyncQueueCompanion.insert(
-            tripId: 'goa-2026',
-            crdtUpdate: Uint8List.fromList([10, 20, 30]),
-          ),
-        );
-
-    await db.into(db.outboundSyncQueue).insert(
-          OutboundSyncQueueCompanion.insert(
-            tripId: 'goa-2026',
-            crdtUpdate: Uint8List.fromList([40, 50, 60]),
-          ),
-        );
-
-    // 2. Query queue: should have 2 pending items
-    final pending = await (db.select(db.outboundSyncQueue)
-          ..where((t) => t.tripId.equals('goa-2026') & t.status.equals('pending')))
-        .get();
-
-    expect(pending.length, 2);
-    expect(pending[0].crdtUpdate, [10, 20, 30]);
-    expect(pending[1].crdtUpdate, [40, 50, 60]);
-  });
-
-  test('SyncEngine handles offline network failure gracefully without data loss', () async {
-    // 1. Queue an update
-    await db.into(db.outboundSyncQueue).insert(
-          OutboundSyncQueueCompanion.insert(
-            tripId: 'goa-2026',
-            crdtUpdate: Uint8List.fromList([1, 2, 3]),
-          ),
-        );
-
-    // 2. Attempt sync to an unreachable port (simulating offline mode)
-    final success = await syncEngine.flushQueue(
-      tripId: 'goa-2026',
-      baseUrl: 'http://127.0.0.1:59999', // Closed port
-    );
-
-    expect(success, false);
-
-    // 3. Mutation MUST still exist in database for next retry
-    final itemsStillInQueue = await db.select(db.outboundSyncQueue).get();
-    expect(itemsStillInQueue.length, 1);
-    expect(itemsStillInQueue.first.crdtUpdate, [1, 2, 3]);
   });
 }

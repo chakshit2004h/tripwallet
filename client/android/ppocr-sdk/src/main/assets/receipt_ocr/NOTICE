@@ -1,0 +1,9 @@
+TripWallet includes PaddleOCR Android SDK and PP-OCRv6 tiny models.
+Copyright (c) PaddlePaddle Authors. Licensed under the Apache License, Version 2.0.
+https://github.com/PaddlePaddle/PaddleOCR
+
+SDK revision: dab3fe35379033fdcb2d0e9572fac0b36c9a9ebf
+Models: https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_det_onnx
+https://huggingface.co/PaddlePaddle/PP-OCRv6_tiny_rec_onnx
+
+TripWallet modifies the SDK build configuration and bundles the model files.

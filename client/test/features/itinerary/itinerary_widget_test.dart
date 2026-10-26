@@ -43,7 +43,7 @@ void main() {
       await database.close();
     });
 
-    testWidgets('ItineraryTabView displays day pills and default stops', (tester) async {
+    testWidgets('ItineraryTabView displays only days with saved stops', (tester) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -58,10 +58,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify Day pills
+      // The visible days come from saved stops, not a preset itinerary.
       expect(find.text('Day 1'), findsOneWidget);
       expect(find.text('Day 2'), findsOneWidget);
-      expect(find.text('Day 3'), findsOneWidget);
+      expect(find.text('Day 3'), findsNothing);
 
       // Verify Day 1 stops
       expect(find.text('IndiGo 6E-241'), findsOneWidget);
@@ -120,15 +120,16 @@ void main() {
       await tester.tap(find.text('Open Sheet'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Add Itinerary Stop'), findsOneWidget);
-      expect(find.text('Add Stop to Schedule'), findsOneWidget);
+      expect(find.text('Add to day 2'), findsOneWidget);
+      expect(find.text('Add stop'), findsOneWidget);
 
       // Enter title
       await tester.enterText(find.byType(TextField).first, 'Sunset Cruise');
       await tester.pump();
 
       // Submit
-      await tester.tap(find.text('Add Stop to Schedule'));
+      await tester.ensureVisible(find.text('Add stop'));
+      await tester.tap(find.text('Add stop'));
       await tester.pumpAndSettle();
 
       expect(addedStop, isNotNull);

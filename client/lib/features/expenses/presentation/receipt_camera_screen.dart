@@ -1,339 +1,187 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import '../data/receipt_text_recognizer.dart';
+import '../../../core/data/trip_repository.dart';
+import '../../../core/data/app_error.dart';
+import '../../../core/db/database_provider.dart';
 import '../../../core/theme/app_typography.dart';
-import '../domain/receipt_models.dart';
+import '../../../core/widgets/ledger_widgets.dart';
+import '../domain/receipt_parser.dart';
 import 'line_item_review_screen.dart';
 
-class ReceiptCameraScreen extends StatefulWidget {
+class ReceiptCameraScreen extends ConsumerStatefulWidget {
   final String tripId;
-
-  const ReceiptCameraScreen({
-    super.key,
-    required this.tripId,
-  });
-
+  const ReceiptCameraScreen({super.key, required this.tripId});
   @override
-  State<ReceiptCameraScreen> createState() => _ReceiptCameraScreenState();
+  ConsumerState<ReceiptCameraScreen> createState() =>
+      _ReceiptCameraScreenState();
 }
 
-class _ReceiptCameraScreenState extends State<ReceiptCameraScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _scanAnimationController;
-  bool _isFlashOn = false;
-  bool _isProcessing = false;
-
+class _ReceiptCameraScreenState extends ConsumerState<ReceiptCameraScreen> {
+  bool _busy = false;
+  String? _error;
+  final _picker = ImagePicker();
   @override
   void initState() {
     super.initState();
-    _scanAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
+    if (Platform.isAndroid) _recover();
   }
 
-  @override
-  void dispose() {
-    _scanAnimationController.dispose();
-    super.dispose();
+  Future<void> _recover() async {
+    try {
+      final response = await _picker.retrieveLostData();
+      if (!mounted) return;
+      if (response.files?.isNotEmpty == true) {
+        await _recognize(response.files!.first);
+      } else if (response.exception != null) {
+        setState(
+          () => _error =
+              'The captured photo could not be recovered. Please take it again.',
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'The captured photo could not be recovered. Please take it again.',
+        );
+      }
+    }
   }
 
-  void _onSelectPreset(String presetKey) async {
-    setState(() => _isProcessing = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-
-    final receipt = ReceiptData.getPresetSample(presetKey, widget.tripId);
-    setState(() => _isProcessing = false);
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => LineItemReviewScreen(receipt: receipt),
-      ),
-    );
+  Future<void> _pick(ImageSource source) async {
+    if (_busy) return;
+    try {
+      final file = await _picker.pickImage(
+        source: source,
+        maxWidth: 2400,
+        imageQuality: 95,
+      );
+      if (file != null && mounted) await _recognize(file);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Could not open the camera or photo picker. Check camera access in your device settings.',
+        );
+      }
+    }
   }
 
-  void _onCapture() {
-    _onSelectPreset('goa');
+  Future<void> _recognize(XFile file) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final recognizer = ReceiptTextRecognizer();
+    var loadingTrip = false;
+    try {
+      final text = await recognizer.recognize(file.path);
+      if (!mounted) return;
+      if (text.trim().isEmpty) {
+        setState(
+          () => _error =
+              'No text was detected. Keep the receipt flat, fill the frame, and avoid blur or glare. The scanner currently reads Latin-script text, such as English.',
+        );
+        return;
+      }
+      loadingTrip = true;
+      final data = await ref.read(tripRepositoryProvider).read();
+      final trip = data.trips.firstWhere((t) => t.id == widget.tripId);
+      final member = data.myMemberId(
+        trip.id,
+        ref.read(accountIdProvider) ?? '',
+      );
+      if (member == null) throw StateError('Trip members are not loaded');
+      loadingTrip = false;
+      final receipt = parseReceiptText(
+        text,
+        tripId: trip.id,
+        currency: trip.baseCurrency,
+        payerMemberId: member,
+      );
+      if (!mounted) return;
+      if (receipt.items.isEmpty) {
+        setState(
+          () => _error =
+              'Text was detected, but no item prices could be matched. Include both the item names and the price column, or enter this bill manually.',
+        );
+        return;
+      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => LineItemReviewScreen(receipt: receipt),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(
+          () => _error = loadingTrip
+              ? appError(e)
+              : 'Could not process this photo. Try another photo or enter the expense manually.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final supported = Platform.isAndroid || Platform.isIOS;
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text('Scan Receipt', style: AppTypography.titleMedium.copyWith(color: Colors.white)),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isFlashOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
-              color: _isFlashOn ? AppColors.yellow : Colors.white70,
+      appBar: AppBar(title: const Text('Scan a receipt')),
+      body: ContentWidth(
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            const EmptyState(
+              icon: Icons.document_scanner_outlined,
+              title: 'Every dish. Every share.',
+              message:
+                  'Take a clear photo of the whole receipt. You’ll review the items and prices before splitting.',
             ),
-            onPressed: () => setState(() => _isFlashOn = !_isFlashOn),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Viewfinder background simulation
-          Positioned.fill(
-            child: Container(
-              color: const Color(0xFF111417),
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.receipt_long_rounded,
-                      size: 80,
-                      color: AppColors.line.withOpacity(0.4),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Align receipt inside the frame',
-                      style: AppTypography.bodySmall.copyWith(color: Colors.white54),
-                    ),
-                  ],
+            if (_busy) ...[
+              const Center(child: CircularProgressIndicator()),
+              const SizedBox(height: 16),
+              const Text(
+                'Reading your receipt on this device…',
+                textAlign: TextAlign.center,
+              ),
+            ] else if (supported) ...[
+              ElevatedButton.icon(
+                onPressed: () => _pick(ImageSource.camera),
+                icon: const Icon(Icons.camera_alt_outlined),
+                label: const Text('Take a photo'),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => _pick(ImageSource.gallery),
+                icon: const Icon(Icons.photo_library_outlined),
+                label: const Text('Choose a photo'),
+              ),
+            ] else
+              Text(
+                'Receipt scanning is available on Android and iOS. Use manual entry on this device.',
+                style: AppTypography.bodyLarge,
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 20),
+                child: Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
+            const SizedBox(height: 24),
+            Text(
+              'Photos are processed on your device. Check totals against the original bill, especially discounts and service charges.',
+              style: AppTypography.bodySmall,
+              textAlign: TextAlign.center,
             ),
-          ),
-
-          // Viewfinder Frame Overlay
-          Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.85,
-              height: MediaQuery.of(context).size.height * 0.55,
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.coral.withOpacity(0.6), width: 2),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Stack(
-                children: [
-                  // Animated Scanning Laser Line
-                  AnimatedBuilder(
-                    animation: _scanAnimationController,
-                    builder: (context, child) {
-                      return Positioned(
-                        top: _scanAnimationController.value *
-                            (MediaQuery.of(context).size.height * 0.55 - 4),
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          height: 3,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.transparent,
-                                AppColors.coral.withOpacity(0.9),
-                                Colors.transparent,
-                              ],
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.coral.withOpacity(0.7),
-                                blurRadius: 8,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  // Corner Accents
-                  _buildCornerAccent(top: 0, left: 0),
-                  _buildCornerAccent(top: 0, right: 0),
-                  _buildCornerAccent(bottom: 0, left: 0),
-                  _buildCornerAccent(bottom: 0, right: 0),
-                ],
-              ),
-            ),
-          ),
-
-          // Processing Indicator
-          if (_isProcessing)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black.withOpacity(0.7),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(color: AppColors.coral),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Parsing line items with OCR...',
-                        style: AppTypography.bodyMedium.copyWith(color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          // Bottom Controls & Quick Presets
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.85),
-                    Colors.black,
-                  ],
-                ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Presets bar for instant frictionless testing
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.paper.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.line),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.bolt_rounded, color: AppColors.yellow, size: 18),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Instant Test Receipts:',
-                              style: AppTypography.caption.copyWith(
-                                color: AppColors.cream,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            _buildPresetChip('🌴 Goa Shack', () => _onSelectPreset('goa')),
-                            const SizedBox(width: 8),
-                            _buildPresetChip('☕ Bistro', () => _onSelectPreset('bistro')),
-                            const SizedBox(width: 8),
-                            _buildPresetChip('🍕 Pizzeria', () => _onSelectPreset('pizza')),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Shutter and actions
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.photo_library_rounded, color: Colors.white70, size: 28),
-                        onPressed: () => _onSelectPreset('bistro'),
-                      ),
-
-                      // Shutter button
-                      GestureDetector(
-                        onTap: _onCapture,
-                        child: Container(
-                          width: 72,
-                          height: 72,
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
-                          ),
-                          child: Container(
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.coral,
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt_rounded,
-                              color: Colors.white,
-                              size: 32,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      IconButton(
-                        icon: const Icon(Icons.text_snippet_rounded, color: Colors.white70, size: 28),
-                        onPressed: () => _onSelectPreset('pizza'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPresetChip(String label, VoidCallback onTap) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.line),
-          ),
-          child: Text(
-            label,
-            style: AppTypography.caption.copyWith(
-              color: AppColors.cream,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCornerAccent({
-    double? top,
-    double? bottom,
-    double? left,
-    double? right,
-  }) {
-    return Positioned(
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          border: Border(
-            top: top != null ? const BorderSide(color: AppColors.coral, width: 4) : BorderSide.none,
-            bottom: bottom != null ? const BorderSide(color: AppColors.coral, width: 4) : BorderSide.none,
-            left: left != null ? const BorderSide(color: AppColors.coral, width: 4) : BorderSide.none,
-            right: right != null ? const BorderSide(color: AppColors.coral, width: 4) : BorderSide.none,
-          ),
+          ],
         ),
       ),
     );

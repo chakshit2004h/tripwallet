@@ -29,6 +29,18 @@ class $LocalTripsTable extends LocalTrips
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -110,6 +122,7 @@ class $LocalTripsTable extends LocalTrips
   List<GeneratedColumn> get $columns => [
     id,
     inviteCode,
+    createdBy,
     name,
     startDate,
     endDate,
@@ -142,6 +155,12 @@ class $LocalTripsTable extends LocalTrips
       );
     } else if (isInserting) {
       context.missing(_inviteCodeMeta);
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -210,6 +229,10 @@ class $LocalTripsTable extends LocalTrips
         DriftSqlType.string,
         data['${effectivePrefix}invite_code'],
       )!,
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      )!,
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -250,6 +273,7 @@ class $LocalTripsTable extends LocalTrips
 class LocalTrip extends DataClass implements Insertable<LocalTrip> {
   final String id;
   final String inviteCode;
+  final String createdBy;
   final String name;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -260,6 +284,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
   const LocalTrip({
     required this.id,
     required this.inviteCode,
+    required this.createdBy,
     required this.name,
     this.startDate,
     this.endDate,
@@ -273,6 +298,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['invite_code'] = Variable<String>(inviteCode);
+    map['created_by'] = Variable<String>(createdBy);
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || startDate != null) {
       map['start_date'] = Variable<DateTime>(startDate);
@@ -293,6 +319,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
     return LocalTripsCompanion(
       id: Value(id),
       inviteCode: Value(inviteCode),
+      createdBy: Value(createdBy),
       name: Value(name),
       startDate: startDate == null && nullToAbsent
           ? const Value.absent()
@@ -317,6 +344,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
     return LocalTrip(
       id: serializer.fromJson<String>(json['id']),
       inviteCode: serializer.fromJson<String>(json['inviteCode']),
+      createdBy: serializer.fromJson<String>(json['createdBy']),
       name: serializer.fromJson<String>(json['name']),
       startDate: serializer.fromJson<DateTime?>(json['startDate']),
       endDate: serializer.fromJson<DateTime?>(json['endDate']),
@@ -332,6 +360,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'inviteCode': serializer.toJson<String>(inviteCode),
+      'createdBy': serializer.toJson<String>(createdBy),
       'name': serializer.toJson<String>(name),
       'startDate': serializer.toJson<DateTime?>(startDate),
       'endDate': serializer.toJson<DateTime?>(endDate),
@@ -345,6 +374,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
   LocalTrip copyWith({
     String? id,
     String? inviteCode,
+    String? createdBy,
     String? name,
     Value<DateTime?> startDate = const Value.absent(),
     Value<DateTime?> endDate = const Value.absent(),
@@ -355,6 +385,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
   }) => LocalTrip(
     id: id ?? this.id,
     inviteCode: inviteCode ?? this.inviteCode,
+    createdBy: createdBy ?? this.createdBy,
     name: name ?? this.name,
     startDate: startDate.present ? startDate.value : this.startDate,
     endDate: endDate.present ? endDate.value : this.endDate,
@@ -369,6 +400,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
       inviteCode: data.inviteCode.present
           ? data.inviteCode.value
           : this.inviteCode,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
       name: data.name.present ? data.name.value : this.name,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       endDate: data.endDate.present ? data.endDate.value : this.endDate,
@@ -388,6 +420,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
     return (StringBuffer('LocalTrip(')
           ..write('id: $id, ')
           ..write('inviteCode: $inviteCode, ')
+          ..write('createdBy: $createdBy, ')
           ..write('name: $name, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
@@ -403,6 +436,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
   int get hashCode => Object.hash(
     id,
     inviteCode,
+    createdBy,
     name,
     startDate,
     endDate,
@@ -417,6 +451,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
       (other is LocalTrip &&
           other.id == this.id &&
           other.inviteCode == this.inviteCode &&
+          other.createdBy == this.createdBy &&
           other.name == this.name &&
           other.startDate == this.startDate &&
           other.endDate == this.endDate &&
@@ -429,6 +464,7 @@ class LocalTrip extends DataClass implements Insertable<LocalTrip> {
 class LocalTripsCompanion extends UpdateCompanion<LocalTrip> {
   final Value<String> id;
   final Value<String> inviteCode;
+  final Value<String> createdBy;
   final Value<String> name;
   final Value<DateTime?> startDate;
   final Value<DateTime?> endDate;
@@ -440,6 +476,7 @@ class LocalTripsCompanion extends UpdateCompanion<LocalTrip> {
   const LocalTripsCompanion({
     this.id = const Value.absent(),
     this.inviteCode = const Value.absent(),
+    this.createdBy = const Value.absent(),
     this.name = const Value.absent(),
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
@@ -452,6 +489,7 @@ class LocalTripsCompanion extends UpdateCompanion<LocalTrip> {
   LocalTripsCompanion.insert({
     required String id,
     required String inviteCode,
+    this.createdBy = const Value.absent(),
     required String name,
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
@@ -466,6 +504,7 @@ class LocalTripsCompanion extends UpdateCompanion<LocalTrip> {
   static Insertable<LocalTrip> custom({
     Expression<String>? id,
     Expression<String>? inviteCode,
+    Expression<String>? createdBy,
     Expression<String>? name,
     Expression<DateTime>? startDate,
     Expression<DateTime>? endDate,
@@ -478,6 +517,7 @@ class LocalTripsCompanion extends UpdateCompanion<LocalTrip> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (inviteCode != null) 'invite_code': inviteCode,
+      if (createdBy != null) 'created_by': createdBy,
       if (name != null) 'name': name,
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
@@ -492,6 +532,7 @@ class LocalTripsCompanion extends UpdateCompanion<LocalTrip> {
   LocalTripsCompanion copyWith({
     Value<String>? id,
     Value<String>? inviteCode,
+    Value<String>? createdBy,
     Value<String>? name,
     Value<DateTime?>? startDate,
     Value<DateTime?>? endDate,
@@ -504,6 +545,7 @@ class LocalTripsCompanion extends UpdateCompanion<LocalTrip> {
     return LocalTripsCompanion(
       id: id ?? this.id,
       inviteCode: inviteCode ?? this.inviteCode,
+      createdBy: createdBy ?? this.createdBy,
       name: name ?? this.name,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
@@ -523,6 +565,9 @@ class LocalTripsCompanion extends UpdateCompanion<LocalTrip> {
     }
     if (inviteCode.present) {
       map['invite_code'] = Variable<String>(inviteCode.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -556,6 +601,7 @@ class LocalTripsCompanion extends UpdateCompanion<LocalTrip> {
     return (StringBuffer('LocalTripsCompanion(')
           ..write('id: $id, ')
           ..write('inviteCode: $inviteCode, ')
+          ..write('createdBy: $createdBy, ')
           ..write('name: $name, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
@@ -575,6 +621,16 @@ class $LocalMembersTable extends LocalMembers
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $LocalMembersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<String> id = GeneratedColumn<String>(
@@ -638,6 +694,7 @@ class $LocalMembersTable extends LocalMembers
   );
   @override
   List<GeneratedColumn> get $columns => [
+    userId,
     id,
     tripId,
     displayName,
@@ -657,6 +714,12 @@ class $LocalMembersTable extends LocalMembers
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
@@ -708,6 +771,10 @@ class $LocalMembersTable extends LocalMembers
   LocalMember map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return LocalMember(
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id'],
@@ -742,6 +809,7 @@ class $LocalMembersTable extends LocalMembers
 }
 
 class LocalMember extends DataClass implements Insertable<LocalMember> {
+  final String userId;
   final String id;
   final String tripId;
   final String displayName;
@@ -749,6 +817,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
   final String role;
   final String? paymentVpa;
   const LocalMember({
+    required this.userId,
     required this.id,
     required this.tripId,
     required this.displayName,
@@ -759,6 +828,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['user_id'] = Variable<String>(userId);
     map['id'] = Variable<String>(id);
     map['trip_id'] = Variable<String>(tripId);
     map['display_name'] = Variable<String>(displayName);
@@ -774,6 +844,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
 
   LocalMembersCompanion toCompanion(bool nullToAbsent) {
     return LocalMembersCompanion(
+      userId: Value(userId),
       id: Value(id),
       tripId: Value(tripId),
       displayName: Value(displayName),
@@ -793,6 +864,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return LocalMember(
+      userId: serializer.fromJson<String>(json['userId']),
       id: serializer.fromJson<String>(json['id']),
       tripId: serializer.fromJson<String>(json['tripId']),
       displayName: serializer.fromJson<String>(json['displayName']),
@@ -805,6 +877,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'userId': serializer.toJson<String>(userId),
       'id': serializer.toJson<String>(id),
       'tripId': serializer.toJson<String>(tripId),
       'displayName': serializer.toJson<String>(displayName),
@@ -815,6 +888,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
   }
 
   LocalMember copyWith({
+    String? userId,
     String? id,
     String? tripId,
     String? displayName,
@@ -822,6 +896,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
     String? role,
     Value<String?> paymentVpa = const Value.absent(),
   }) => LocalMember(
+    userId: userId ?? this.userId,
     id: id ?? this.id,
     tripId: tripId ?? this.tripId,
     displayName: displayName ?? this.displayName,
@@ -831,6 +906,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
   );
   LocalMember copyWithCompanion(LocalMembersCompanion data) {
     return LocalMember(
+      userId: data.userId.present ? data.userId.value : this.userId,
       id: data.id.present ? data.id.value : this.id,
       tripId: data.tripId.present ? data.tripId.value : this.tripId,
       displayName: data.displayName.present
@@ -847,6 +923,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
   @override
   String toString() {
     return (StringBuffer('LocalMember(')
+          ..write('userId: $userId, ')
           ..write('id: $id, ')
           ..write('tripId: $tripId, ')
           ..write('displayName: $displayName, ')
@@ -859,11 +936,12 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
 
   @override
   int get hashCode =>
-      Object.hash(id, tripId, displayName, avatarUrl, role, paymentVpa);
+      Object.hash(userId, id, tripId, displayName, avatarUrl, role, paymentVpa);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is LocalMember &&
+          other.userId == this.userId &&
           other.id == this.id &&
           other.tripId == this.tripId &&
           other.displayName == this.displayName &&
@@ -873,6 +951,7 @@ class LocalMember extends DataClass implements Insertable<LocalMember> {
 }
 
 class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
+  final Value<String> userId;
   final Value<String> id;
   final Value<String> tripId;
   final Value<String> displayName;
@@ -881,6 +960,7 @@ class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
   final Value<String?> paymentVpa;
   final Value<int> rowid;
   const LocalMembersCompanion({
+    this.userId = const Value.absent(),
     this.id = const Value.absent(),
     this.tripId = const Value.absent(),
     this.displayName = const Value.absent(),
@@ -890,6 +970,7 @@ class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
     this.rowid = const Value.absent(),
   });
   LocalMembersCompanion.insert({
+    this.userId = const Value.absent(),
     required String id,
     required String tripId,
     required String displayName,
@@ -901,6 +982,7 @@ class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
        tripId = Value(tripId),
        displayName = Value(displayName);
   static Insertable<LocalMember> custom({
+    Expression<String>? userId,
     Expression<String>? id,
     Expression<String>? tripId,
     Expression<String>? displayName,
@@ -910,6 +992,7 @@ class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (userId != null) 'user_id': userId,
       if (id != null) 'id': id,
       if (tripId != null) 'trip_id': tripId,
       if (displayName != null) 'display_name': displayName,
@@ -921,6 +1004,7 @@ class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
   }
 
   LocalMembersCompanion copyWith({
+    Value<String>? userId,
     Value<String>? id,
     Value<String>? tripId,
     Value<String>? displayName,
@@ -930,6 +1014,7 @@ class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
     Value<int>? rowid,
   }) {
     return LocalMembersCompanion(
+      userId: userId ?? this.userId,
       id: id ?? this.id,
       tripId: tripId ?? this.tripId,
       displayName: displayName ?? this.displayName,
@@ -943,6 +1028,9 @@ class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
     if (id.present) {
       map['id'] = Variable<String>(id.value);
     }
@@ -970,6 +1058,7 @@ class LocalMembersCompanion extends UpdateCompanion<LocalMember> {
   @override
   String toString() {
     return (StringBuffer('LocalMembersCompanion(')
+          ..write('userId: $userId, ')
           ..write('id: $id, ')
           ..write('tripId: $tripId, ')
           ..write('displayName: $displayName, ')
@@ -988,6 +1077,30 @@ class $LocalExpensesTable extends LocalExpenses
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $LocalExpensesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('other'),
+  );
+  static const VerificationMeta _createdByMeta = const VerificationMeta(
+    'createdBy',
+  );
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+    'created_by',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
   late final GeneratedColumn<String> id = GeneratedColumn<String>(
@@ -1097,6 +1210,8 @@ class $LocalExpensesTable extends LocalExpenses
   );
   @override
   List<GeneratedColumn> get $columns => [
+    category,
+    createdBy,
     id,
     tripId,
     title,
@@ -1120,6 +1235,18 @@ class $LocalExpensesTable extends LocalExpenses
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(
+        _createdByMeta,
+        createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta),
+      );
+    }
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
@@ -1210,6 +1337,14 @@ class $LocalExpensesTable extends LocalExpenses
   LocalExpense map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return LocalExpense(
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      createdBy: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}created_by'],
+      )!,
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id'],
@@ -1260,6 +1395,8 @@ class $LocalExpensesTable extends LocalExpenses
 }
 
 class LocalExpense extends DataClass implements Insertable<LocalExpense> {
+  final String category;
+  final String createdBy;
   final String id;
   final String tripId;
   final String title;
@@ -1271,6 +1408,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
   final int serviceChargeMinor;
   final DateTime createdAt;
   const LocalExpense({
+    required this.category,
+    required this.createdBy,
     required this.id,
     required this.tripId,
     required this.title,
@@ -1285,6 +1424,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    map['category'] = Variable<String>(category);
+    map['created_by'] = Variable<String>(createdBy);
     map['id'] = Variable<String>(id);
     map['trip_id'] = Variable<String>(tripId);
     map['title'] = Variable<String>(title);
@@ -1300,6 +1441,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
 
   LocalExpensesCompanion toCompanion(bool nullToAbsent) {
     return LocalExpensesCompanion(
+      category: Value(category),
+      createdBy: Value(createdBy),
       id: Value(id),
       tripId: Value(tripId),
       title: Value(title),
@@ -1319,6 +1462,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return LocalExpense(
+      category: serializer.fromJson<String>(json['category']),
+      createdBy: serializer.fromJson<String>(json['createdBy']),
       id: serializer.fromJson<String>(json['id']),
       tripId: serializer.fromJson<String>(json['tripId']),
       title: serializer.fromJson<String>(json['title']),
@@ -1335,6 +1480,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
+      'category': serializer.toJson<String>(category),
+      'createdBy': serializer.toJson<String>(createdBy),
       'id': serializer.toJson<String>(id),
       'tripId': serializer.toJson<String>(tripId),
       'title': serializer.toJson<String>(title),
@@ -1349,6 +1496,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
   }
 
   LocalExpense copyWith({
+    String? category,
+    String? createdBy,
     String? id,
     String? tripId,
     String? title,
@@ -1360,6 +1509,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
     int? serviceChargeMinor,
     DateTime? createdAt,
   }) => LocalExpense(
+    category: category ?? this.category,
+    createdBy: createdBy ?? this.createdBy,
     id: id ?? this.id,
     tripId: tripId ?? this.tripId,
     title: title ?? this.title,
@@ -1373,6 +1524,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
   );
   LocalExpense copyWithCompanion(LocalExpensesCompanion data) {
     return LocalExpense(
+      category: data.category.present ? data.category.value : this.category,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
       id: data.id.present ? data.id.value : this.id,
       tripId: data.tripId.present ? data.tripId.value : this.tripId,
       title: data.title.present ? data.title.value : this.title,
@@ -1397,6 +1550,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
   @override
   String toString() {
     return (StringBuffer('LocalExpense(')
+          ..write('category: $category, ')
+          ..write('createdBy: $createdBy, ')
           ..write('id: $id, ')
           ..write('tripId: $tripId, ')
           ..write('title: $title, ')
@@ -1413,6 +1568,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
 
   @override
   int get hashCode => Object.hash(
+    category,
+    createdBy,
     id,
     tripId,
     title,
@@ -1428,6 +1585,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is LocalExpense &&
+          other.category == this.category &&
+          other.createdBy == this.createdBy &&
           other.id == this.id &&
           other.tripId == this.tripId &&
           other.title == this.title &&
@@ -1441,6 +1600,8 @@ class LocalExpense extends DataClass implements Insertable<LocalExpense> {
 }
 
 class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
+  final Value<String> category;
+  final Value<String> createdBy;
   final Value<String> id;
   final Value<String> tripId;
   final Value<String> title;
@@ -1453,6 +1614,8 @@ class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
   final Value<DateTime> createdAt;
   final Value<int> rowid;
   const LocalExpensesCompanion({
+    this.category = const Value.absent(),
+    this.createdBy = const Value.absent(),
     this.id = const Value.absent(),
     this.tripId = const Value.absent(),
     this.title = const Value.absent(),
@@ -1466,6 +1629,8 @@ class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
     this.rowid = const Value.absent(),
   });
   LocalExpensesCompanion.insert({
+    this.category = const Value.absent(),
+    this.createdBy = const Value.absent(),
     required String id,
     required String tripId,
     required String title,
@@ -1484,6 +1649,8 @@ class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
        currency = Value(currency),
        paidByMemberId = Value(paidByMemberId);
   static Insertable<LocalExpense> custom({
+    Expression<String>? category,
+    Expression<String>? createdBy,
     Expression<String>? id,
     Expression<String>? tripId,
     Expression<String>? title,
@@ -1497,6 +1664,8 @@ class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
+      if (category != null) 'category': category,
+      if (createdBy != null) 'created_by': createdBy,
       if (id != null) 'id': id,
       if (tripId != null) 'trip_id': tripId,
       if (title != null) 'title': title,
@@ -1513,6 +1682,8 @@ class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
   }
 
   LocalExpensesCompanion copyWith({
+    Value<String>? category,
+    Value<String>? createdBy,
     Value<String>? id,
     Value<String>? tripId,
     Value<String>? title,
@@ -1526,6 +1697,8 @@ class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
     Value<int>? rowid,
   }) {
     return LocalExpensesCompanion(
+      category: category ?? this.category,
+      createdBy: createdBy ?? this.createdBy,
       id: id ?? this.id,
       tripId: tripId ?? this.tripId,
       title: title ?? this.title,
@@ -1543,6 +1716,12 @@ class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
     if (id.present) {
       map['id'] = Variable<String>(id.value);
     }
@@ -1582,6 +1761,8 @@ class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
   @override
   String toString() {
     return (StringBuffer('LocalExpensesCompanion(')
+          ..write('category: $category, ')
+          ..write('createdBy: $createdBy, ')
           ..write('id: $id, ')
           ..write('tripId: $tripId, ')
           ..write('title: $title, ')
@@ -1592,6 +1773,281 @@ class LocalExpensesCompanion extends UpdateCompanion<LocalExpense> {
           ..write('taxMinor: $taxMinor, ')
           ..write('serviceChargeMinor: $serviceChargeMinor, ')
           ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $LocalExpenseSplitsTable extends LocalExpenseSplits
+    with TableInfo<$LocalExpenseSplitsTable, LocalExpenseSplit> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LocalExpenseSplitsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _expenseIdMeta = const VerificationMeta(
+    'expenseId',
+  );
+  @override
+  late final GeneratedColumn<String> expenseId = GeneratedColumn<String>(
+    'expense_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _amountMinorMeta = const VerificationMeta(
+    'amountMinor',
+  );
+  @override
+  late final GeneratedColumn<int> amountMinor = GeneratedColumn<int>(
+    'amount_minor',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [expenseId, memberId, amountMinor];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'local_expense_splits';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LocalExpenseSplit> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('expense_id')) {
+      context.handle(
+        _expenseIdMeta,
+        expenseId.isAcceptableOrUnknown(data['expense_id']!, _expenseIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expenseIdMeta);
+    }
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memberIdMeta);
+    }
+    if (data.containsKey('amount_minor')) {
+      context.handle(
+        _amountMinorMeta,
+        amountMinor.isAcceptableOrUnknown(
+          data['amount_minor']!,
+          _amountMinorMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_amountMinorMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {expenseId, memberId};
+  @override
+  LocalExpenseSplit map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LocalExpenseSplit(
+      expenseId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}expense_id'],
+      )!,
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      )!,
+      amountMinor: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}amount_minor'],
+      )!,
+    );
+  }
+
+  @override
+  $LocalExpenseSplitsTable createAlias(String alias) {
+    return $LocalExpenseSplitsTable(attachedDatabase, alias);
+  }
+}
+
+class LocalExpenseSplit extends DataClass
+    implements Insertable<LocalExpenseSplit> {
+  final String expenseId;
+  final String memberId;
+  final int amountMinor;
+  const LocalExpenseSplit({
+    required this.expenseId,
+    required this.memberId,
+    required this.amountMinor,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['expense_id'] = Variable<String>(expenseId);
+    map['member_id'] = Variable<String>(memberId);
+    map['amount_minor'] = Variable<int>(amountMinor);
+    return map;
+  }
+
+  LocalExpenseSplitsCompanion toCompanion(bool nullToAbsent) {
+    return LocalExpenseSplitsCompanion(
+      expenseId: Value(expenseId),
+      memberId: Value(memberId),
+      amountMinor: Value(amountMinor),
+    );
+  }
+
+  factory LocalExpenseSplit.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LocalExpenseSplit(
+      expenseId: serializer.fromJson<String>(json['expenseId']),
+      memberId: serializer.fromJson<String>(json['memberId']),
+      amountMinor: serializer.fromJson<int>(json['amountMinor']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'expenseId': serializer.toJson<String>(expenseId),
+      'memberId': serializer.toJson<String>(memberId),
+      'amountMinor': serializer.toJson<int>(amountMinor),
+    };
+  }
+
+  LocalExpenseSplit copyWith({
+    String? expenseId,
+    String? memberId,
+    int? amountMinor,
+  }) => LocalExpenseSplit(
+    expenseId: expenseId ?? this.expenseId,
+    memberId: memberId ?? this.memberId,
+    amountMinor: amountMinor ?? this.amountMinor,
+  );
+  LocalExpenseSplit copyWithCompanion(LocalExpenseSplitsCompanion data) {
+    return LocalExpenseSplit(
+      expenseId: data.expenseId.present ? data.expenseId.value : this.expenseId,
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      amountMinor: data.amountMinor.present
+          ? data.amountMinor.value
+          : this.amountMinor,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalExpenseSplit(')
+          ..write('expenseId: $expenseId, ')
+          ..write('memberId: $memberId, ')
+          ..write('amountMinor: $amountMinor')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(expenseId, memberId, amountMinor);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LocalExpenseSplit &&
+          other.expenseId == this.expenseId &&
+          other.memberId == this.memberId &&
+          other.amountMinor == this.amountMinor);
+}
+
+class LocalExpenseSplitsCompanion extends UpdateCompanion<LocalExpenseSplit> {
+  final Value<String> expenseId;
+  final Value<String> memberId;
+  final Value<int> amountMinor;
+  final Value<int> rowid;
+  const LocalExpenseSplitsCompanion({
+    this.expenseId = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.amountMinor = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LocalExpenseSplitsCompanion.insert({
+    required String expenseId,
+    required String memberId,
+    required int amountMinor,
+    this.rowid = const Value.absent(),
+  }) : expenseId = Value(expenseId),
+       memberId = Value(memberId),
+       amountMinor = Value(amountMinor);
+  static Insertable<LocalExpenseSplit> custom({
+    Expression<String>? expenseId,
+    Expression<String>? memberId,
+    Expression<int>? amountMinor,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (expenseId != null) 'expense_id': expenseId,
+      if (memberId != null) 'member_id': memberId,
+      if (amountMinor != null) 'amount_minor': amountMinor,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LocalExpenseSplitsCompanion copyWith({
+    Value<String>? expenseId,
+    Value<String>? memberId,
+    Value<int>? amountMinor,
+    Value<int>? rowid,
+  }) {
+    return LocalExpenseSplitsCompanion(
+      expenseId: expenseId ?? this.expenseId,
+      memberId: memberId ?? this.memberId,
+      amountMinor: amountMinor ?? this.amountMinor,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (expenseId.present) {
+      map['expense_id'] = Variable<String>(expenseId.value);
+    }
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (amountMinor.present) {
+      map['amount_minor'] = Variable<int>(amountMinor.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LocalExpenseSplitsCompanion(')
+          ..write('expenseId: $expenseId, ')
+          ..write('memberId: $memberId, ')
+          ..write('amountMinor: $amountMinor, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4214,6 +4670,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $LocalTripsTable localTrips = $LocalTripsTable(this);
   late final $LocalMembersTable localMembers = $LocalMembersTable(this);
   late final $LocalExpensesTable localExpenses = $LocalExpensesTable(this);
+  late final $LocalExpenseSplitsTable localExpenseSplits =
+      $LocalExpenseSplitsTable(this);
   late final $LocalLineItemsTable localLineItems = $LocalLineItemsTable(this);
   late final $LocalItemClaimsTable localItemClaims = $LocalItemClaimsTable(
     this,
@@ -4234,6 +4692,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     localTrips,
     localMembers,
     localExpenses,
+    localExpenseSplits,
     localLineItems,
     localItemClaims,
     localSettlements,
@@ -4247,6 +4706,7 @@ typedef $$LocalTripsTableCreateCompanionBuilder =
     LocalTripsCompanion Function({
       required String id,
       required String inviteCode,
+      Value<String> createdBy,
       required String name,
       Value<DateTime?> startDate,
       Value<DateTime?> endDate,
@@ -4260,6 +4720,7 @@ typedef $$LocalTripsTableUpdateCompanionBuilder =
     LocalTripsCompanion Function({
       Value<String> id,
       Value<String> inviteCode,
+      Value<String> createdBy,
       Value<String> name,
       Value<DateTime?> startDate,
       Value<DateTime?> endDate,
@@ -4286,6 +4747,11 @@ class $$LocalTripsTableFilterComposer
 
   ColumnFilters<String> get inviteCode => $composableBuilder(
     column: $table.inviteCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4344,6 +4810,11 @@ class $$LocalTripsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -4396,6 +4867,9 @@ class $$LocalTripsTableAnnotationComposer
     column: $table.inviteCode,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -4456,6 +4930,7 @@ class $$LocalTripsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> inviteCode = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> endDate = const Value.absent(),
@@ -4467,6 +4942,7 @@ class $$LocalTripsTableTableManager
               }) => LocalTripsCompanion(
                 id: id,
                 inviteCode: inviteCode,
+                createdBy: createdBy,
                 name: name,
                 startDate: startDate,
                 endDate: endDate,
@@ -4480,6 +4956,7 @@ class $$LocalTripsTableTableManager
               ({
                 required String id,
                 required String inviteCode,
+                Value<String> createdBy = const Value.absent(),
                 required String name,
                 Value<DateTime?> startDate = const Value.absent(),
                 Value<DateTime?> endDate = const Value.absent(),
@@ -4491,6 +4968,7 @@ class $$LocalTripsTableTableManager
               }) => LocalTripsCompanion.insert(
                 id: id,
                 inviteCode: inviteCode,
+                createdBy: createdBy,
                 name: name,
                 startDate: startDate,
                 endDate: endDate,
@@ -4533,6 +5011,7 @@ typedef $$LocalTripsTableProcessedTableManager =
     >;
 typedef $$LocalMembersTableCreateCompanionBuilder =
     LocalMembersCompanion Function({
+      Value<String> userId,
       required String id,
       required String tripId,
       required String displayName,
@@ -4543,6 +5022,7 @@ typedef $$LocalMembersTableCreateCompanionBuilder =
     });
 typedef $$LocalMembersTableUpdateCompanionBuilder =
     LocalMembersCompanion Function({
+      Value<String> userId,
       Value<String> id,
       Value<String> tripId,
       Value<String> displayName,
@@ -4561,6 +5041,11 @@ class $$LocalMembersTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
@@ -4601,6 +5086,11 @@ class $$LocalMembersTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
@@ -4641,6 +5131,9 @@ class $$LocalMembersTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
@@ -4695,6 +5188,7 @@ class $$LocalMembersTableTableManager
               $$LocalMembersTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> userId = const Value.absent(),
                 Value<String> id = const Value.absent(),
                 Value<String> tripId = const Value.absent(),
                 Value<String> displayName = const Value.absent(),
@@ -4703,6 +5197,7 @@ class $$LocalMembersTableTableManager
                 Value<String?> paymentVpa = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalMembersCompanion(
+                userId: userId,
                 id: id,
                 tripId: tripId,
                 displayName: displayName,
@@ -4713,6 +5208,7 @@ class $$LocalMembersTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String> userId = const Value.absent(),
                 required String id,
                 required String tripId,
                 required String displayName,
@@ -4721,6 +5217,7 @@ class $$LocalMembersTableTableManager
                 Value<String?> paymentVpa = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalMembersCompanion.insert(
+                userId: userId,
                 id: id,
                 tripId: tripId,
                 displayName: displayName,
@@ -4765,6 +5262,8 @@ typedef $$LocalMembersTableProcessedTableManager =
     >;
 typedef $$LocalExpensesTableCreateCompanionBuilder =
     LocalExpensesCompanion Function({
+      Value<String> category,
+      Value<String> createdBy,
       required String id,
       required String tripId,
       required String title,
@@ -4779,6 +5278,8 @@ typedef $$LocalExpensesTableCreateCompanionBuilder =
     });
 typedef $$LocalExpensesTableUpdateCompanionBuilder =
     LocalExpensesCompanion Function({
+      Value<String> category,
+      Value<String> createdBy,
       Value<String> id,
       Value<String> tripId,
       Value<String> title,
@@ -4801,6 +5302,16 @@ class $$LocalExpensesTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
@@ -4861,6 +5372,16 @@ class $$LocalExpensesTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+    column: $table.createdBy,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
@@ -4921,6 +5442,12 @@ class $$LocalExpensesTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
@@ -4991,6 +5518,8 @@ class $$LocalExpensesTableTableManager
               $$LocalExpensesTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
+                Value<String> category = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
                 Value<String> id = const Value.absent(),
                 Value<String> tripId = const Value.absent(),
                 Value<String> title = const Value.absent(),
@@ -5003,6 +5532,8 @@ class $$LocalExpensesTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalExpensesCompanion(
+                category: category,
+                createdBy: createdBy,
                 id: id,
                 tripId: tripId,
                 title: title,
@@ -5017,6 +5548,8 @@ class $$LocalExpensesTableTableManager
               ),
           createCompanionCallback:
               ({
+                Value<String> category = const Value.absent(),
+                Value<String> createdBy = const Value.absent(),
                 required String id,
                 required String tripId,
                 required String title,
@@ -5029,6 +5562,8 @@ class $$LocalExpensesTableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => LocalExpensesCompanion.insert(
+                category: category,
+                createdBy: createdBy,
                 id: id,
                 tripId: tripId,
                 title: title,
@@ -5073,6 +5608,194 @@ typedef $$LocalExpensesTableProcessedTableManager =
         BaseReferences<_$AppDatabase, $LocalExpensesTable, LocalExpense>,
       ),
       LocalExpense,
+      PrefetchHooks Function()
+    >;
+typedef $$LocalExpenseSplitsTableCreateCompanionBuilder =
+    LocalExpenseSplitsCompanion Function({
+      required String expenseId,
+      required String memberId,
+      required int amountMinor,
+      Value<int> rowid,
+    });
+typedef $$LocalExpenseSplitsTableUpdateCompanionBuilder =
+    LocalExpenseSplitsCompanion Function({
+      Value<String> expenseId,
+      Value<String> memberId,
+      Value<int> amountMinor,
+      Value<int> rowid,
+    });
+
+class $$LocalExpenseSplitsTableFilterComposer
+    extends Composer<_$AppDatabase, $LocalExpenseSplitsTable> {
+  $$LocalExpenseSplitsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get expenseId => $composableBuilder(
+    column: $table.expenseId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$LocalExpenseSplitsTableOrderingComposer
+    extends Composer<_$AppDatabase, $LocalExpenseSplitsTable> {
+  $$LocalExpenseSplitsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get expenseId => $composableBuilder(
+    column: $table.expenseId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$LocalExpenseSplitsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LocalExpenseSplitsTable> {
+  $$LocalExpenseSplitsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get expenseId =>
+      $composableBuilder(column: $table.expenseId, builder: (column) => column);
+
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<int> get amountMinor => $composableBuilder(
+    column: $table.amountMinor,
+    builder: (column) => column,
+  );
+}
+
+class $$LocalExpenseSplitsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $LocalExpenseSplitsTable,
+          LocalExpenseSplit,
+          $$LocalExpenseSplitsTableFilterComposer,
+          $$LocalExpenseSplitsTableOrderingComposer,
+          $$LocalExpenseSplitsTableAnnotationComposer,
+          $$LocalExpenseSplitsTableCreateCompanionBuilder,
+          $$LocalExpenseSplitsTableUpdateCompanionBuilder,
+          (
+            LocalExpenseSplit,
+            BaseReferences<
+              _$AppDatabase,
+              $LocalExpenseSplitsTable,
+              LocalExpenseSplit
+            >,
+          ),
+          LocalExpenseSplit,
+          PrefetchHooks Function()
+        > {
+  $$LocalExpenseSplitsTableTableManager(
+    _$AppDatabase db,
+    $LocalExpenseSplitsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LocalExpenseSplitsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LocalExpenseSplitsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LocalExpenseSplitsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> expenseId = const Value.absent(),
+                Value<String> memberId = const Value.absent(),
+                Value<int> amountMinor = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => LocalExpenseSplitsCompanion(
+                expenseId: expenseId,
+                memberId: memberId,
+                amountMinor: amountMinor,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String expenseId,
+                required String memberId,
+                required int amountMinor,
+                Value<int> rowid = const Value.absent(),
+              }) => LocalExpenseSplitsCompanion.insert(
+                expenseId: expenseId,
+                memberId: memberId,
+                amountMinor: amountMinor,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$LocalExpenseSplitsTable, LocalExpenseSplit>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $LocalExpenseSplitsTable,
+                    LocalExpenseSplit
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$LocalExpenseSplitsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $LocalExpenseSplitsTable,
+      LocalExpenseSplit,
+      $$LocalExpenseSplitsTableFilterComposer,
+      $$LocalExpenseSplitsTableOrderingComposer,
+      $$LocalExpenseSplitsTableAnnotationComposer,
+      $$LocalExpenseSplitsTableCreateCompanionBuilder,
+      $$LocalExpenseSplitsTableUpdateCompanionBuilder,
+      (
+        LocalExpenseSplit,
+        BaseReferences<
+          _$AppDatabase,
+          $LocalExpenseSplitsTable,
+          LocalExpenseSplit
+        >,
+      ),
+      LocalExpenseSplit,
       PrefetchHooks Function()
     >;
 typedef $$LocalLineItemsTableCreateCompanionBuilder =
@@ -6569,6 +7292,8 @@ class $AppDatabaseManager {
       $$LocalMembersTableTableManager(_db, _db.localMembers);
   $$LocalExpensesTableTableManager get localExpenses =>
       $$LocalExpensesTableTableManager(_db, _db.localExpenses);
+  $$LocalExpenseSplitsTableTableManager get localExpenseSplits =>
+      $$LocalExpenseSplitsTableTableManager(_db, _db.localExpenseSplits);
   $$LocalLineItemsTableTableManager get localLineItems =>
       $$LocalLineItemsTableTableManager(_db, _db.localLineItems);
   $$LocalItemClaimsTableTableManager get localItemClaims =>

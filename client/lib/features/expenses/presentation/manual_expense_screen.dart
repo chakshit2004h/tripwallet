@@ -1,226 +1,373 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:drift/drift.dart' as drift;
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../../core/db/app_database.dart';
+import '../../../core/data/app_error.dart';
+import '../../../core/data/trip_repository.dart';
 import '../../../core/db/database_provider.dart';
-import '../data/supabase_expenses_service.dart';
+import '../../../core/db/app_database.dart';
+import '../../../core/domain/money.dart';
+import '../../../core/domain/expense_members.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/ledger_widgets.dart';
 
 class ManualExpenseScreen extends ConsumerStatefulWidget {
   final String tripId;
-
   const ManualExpenseScreen({super.key, required this.tripId});
-
   @override
-  ConsumerState<ManualExpenseScreen> createState() => _ManualExpenseScreenState();
+  ConsumerState<ManualExpenseScreen> createState() =>
+      _ManualExpenseScreenState();
 }
 
 class _ManualExpenseScreenState extends ConsumerState<ManualExpenseScreen> {
-  final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _amountController = TextEditingController();
-  String _splitMethod = 'Equally';
-  String _selectedPayerId = 'm_you';
-
+  final _title = TextEditingController();
+  final _amount = TextEditingController();
+  final _values = <String, TextEditingController>{};
+  final _excluded = <String>{};
+  String? _payer;
+  String _method = 'equal';
+  String _category = 'other';
+  String? _error;
+  bool _busy = false;
   @override
   void dispose() {
-    _titleController.dispose();
-    _amountController.dispose();
+    _title.dispose();
+    _amount.dispose();
+    for (final c in _values.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _save() async {
-    final title = _titleController.text.trim();
-    final amountText = _amountController.text.trim();
-    if (title.isEmpty || amountText.isEmpty) return;
+  Map<String, int> _exactShares(LocalTrip trip, List<LocalMember> members) {
+    final participants = members
+        .where((m) => !_excluded.contains(m.id))
+        .toList();
+    return splitWithFixedShares(
+      parseMinor(_amount.text, trip.baseCurrency),
+      participants.map((m) => m.id),
+      {
+        for (final member in participants)
+          if ((_values[member.id]?.text.trim() ?? '').isNotEmpty)
+            member.id: parseMinor(
+              _values[member.id]!.text,
+              trip.baseCurrency,
+              allowZero: true,
+            ),
+      },
+    );
+  }
 
-    final amountNum = double.tryParse(amountText) ?? 0.0;
-    final amountMinor = (amountNum * 100).toInt();
-
-    final db = ref.read(databaseProvider);
-    final expenseId = 'exp_${DateTime.now().millisecondsSinceEpoch}';
-
-    await db.into(db.localExpenses).insert(
-          LocalExpensesCompanion.insert(
-            id: expenseId,
-            tripId: widget.tripId,
-            title: title,
-            amountMinor: amountMinor,
-            currency: 'INR',
-            paidByMemberId: _selectedPayerId,
-            splitMethod: drift.Value(_splitMethod.toLowerCase()),
-          ),
-        );
-
-    // Record in localAlerts
-    await db.into(db.localAlerts).insertOnConflictUpdate(
-          LocalAlertsCompanion(
-            id: drift.Value('alt_${DateTime.now().millisecondsSinceEpoch}'),
-            tripId: drift.Value(widget.tripId),
-            title: drift.Value('Added "$title" · ₹${(amountMinor / 100).toStringAsFixed(0)}'),
-            timeAgo: const drift.Value('Just now'),
-            iconType: const drift.Value('receipt'),
-            isCoral: const drift.Value(false),
-            createdAt: drift.Value(DateTime.now()),
-          ),
-        );
-
+  Future<void> _save(
+    LocalTrip trip,
+    List<LocalMember> members,
+    String payer,
+  ) async {
+    if (_busy) return;
     try {
-      final expenseService = ref.read(supabaseExpensesServiceProvider);
-      await expenseService.addExpense(
-        tripId: widget.tripId,
-        title: title,
-        amountMinor: amountMinor,
-        category: 'other',
-        currency: 'INR',
-        paidByUserId: _selectedPayerId,
-        splitMethod: _splitMethod.toLowerCase(),
-      );
+      final amount = parseMinor(_amount.text, trip.baseCurrency);
+      final participants = members
+          .where((m) => !_excluded.contains(m.id))
+          .toList();
+      if (participants.isEmpty) {
+        throw const FormatException(
+          'Choose at least one person to split with.',
+        );
+      }
+      Map<String, int> splits;
+      if (_method == 'equal') {
+        splits = splitEqually(amount, participants.map((m) => m.id));
+      } else if (_method == 'exact') {
+        splits = _exactShares(trip, members);
+      } else {
+        final weights = {
+          for (final m in participants)
+            m.id: parseMinor(_values[m.id]?.text ?? '', 'INR', allowZero: true),
+        };
+        if (weights.values.fold(0, (a, b) => a + b) != 10000) {
+          throw const FormatException('Percentages must add up to 100%.');
+        }
+        splits = splitByWeights(amount, weights);
+      }
+      setState(() {
+        _busy = true;
+        _error = null;
+      });
+      await ref
+          .read(tripRepositoryProvider)
+          .saveExpense(
+            tripId: trip.id,
+            title: _title.text,
+            amountMinor: amount,
+            payerId: payer,
+            splits: splits,
+            category: _category,
+            splitMethod: _method,
+          );
+      if (mounted) context.pop();
     } catch (e) {
-      debugPrint('Supabase addExpense note: $e');
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Expense "$title" saved!'),
-          backgroundColor: AppColors.ink,
-        ),
-      );
-      context.pop();
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = appError(e);
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final db = ref.watch(databaseProvider);
-
+    final data = ref.watch(ledgerProvider).asData?.value;
+    final trip = data?.trips.where((t) => t.id == widget.tripId).firstOrNull;
+    final members =
+        data?.members
+            .where((m) => m.tripId == widget.tripId && canShareNewExpense(m))
+            .toList() ??
+        <LocalMember>[];
+    final payer =
+        _payer ??
+        data?.myMemberId(widget.tripId, ref.watch(accountIdProvider) ?? '') ??
+        members.firstOrNull?.id;
+    Map<String, int> automaticShares = {};
+    String? splitError;
+    if (_method == 'exact' && trip != null && _amount.text.trim().isNotEmpty) {
+      try {
+        automaticShares = _exactShares(trip, members);
+      } on FormatException catch (e) {
+        splitError = e.message;
+      }
+    }
     return Scaffold(
-      backgroundColor: AppColors.card,
-      appBar: AppBar(
-        title: Text('Manual entry', style: AppTypography.titleMedium),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('What was it for', style: AppTypography.titleMedium.copyWith(fontSize: 13)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _titleController,
-                style: AppTypography.bodyMedium,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. Scooter rental, Groceries',
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Text('Amount', style: AppTypography.titleMedium.copyWith(fontSize: 13)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _amountController,
-                keyboardType: TextInputType.number,
-                style: AppTypography.bodyMedium,
-                decoration: InputDecoration(
-                  prefixIcon: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                    child: Text('₹', style: AppTypography.titleMedium.copyWith(color: AppColors.inkSoft)),
+      appBar: AppBar(title: const Text('Add an expense')),
+      body: trip == null || members.isEmpty
+          ? const EmptyState(
+              icon: Icons.sync_problem,
+              title: 'Load your trip first',
+              message: 'Connect and refresh your trip to load its members.',
+            )
+          : ContentWidth(
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  Text(
+                    'What did you pay for?',
+                    style: AppTypography.titleLarge,
                   ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              Text('Paid by', style: AppTypography.titleMedium.copyWith(fontSize: 13)),
-              const SizedBox(height: 8),
-              StreamBuilder<List<LocalMember>>(
-                stream: (db.select(db.localMembers)..where((m) => m.tripId.equals(widget.tripId))).watch(),
-                builder: (context, snapshot) {
-                  final members = snapshot.data ?? [];
-                  if (members.isNotEmpty && !members.any((m) => m.id == _selectedPayerId)) {
-                    _selectedPayerId = members.first.id;
-                  }
-
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: AppColors.paper,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.line, width: 1.4),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: _title,
+                    maxLength: 120,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Expense name',
+                      hintText: 'Dinner, taxi, a place to stay…',
                     ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedPayerId,
-                        isExpanded: true,
-                        dropdownColor: AppColors.paper,
-                        items: members.map((m) {
-                          return DropdownMenuItem(
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const ValueKey('expense-amount'),
+                    controller: _amount,
+                    onChanged: (_) => setState(() => _error = null),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Amount',
+                      prefixText: '${currencySymbol(trip.baseCurrency)} ',
+                      suffixText: trip.baseCurrency,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  DropdownButtonFormField<String>(
+                    initialValue: payer,
+                    decoration: const InputDecoration(labelText: 'Paid by'),
+                    items: members
+                        .map(
+                          (m) => DropdownMenuItem(
                             value: m.id,
-                            child: Text(m.displayName, style: AppTypography.bodyMedium),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) setState(() => _selectedPayerId = val);
-                        },
+                            child: Text(m.displayName),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _payer = v),
+                  ),
+                  const SizedBox(height: 20),
+                  DropdownButtonFormField<String>(
+                    initialValue: _category,
+                    decoration: const InputDecoration(labelText: 'Category'),
+                    items:
+                        [
+                              'food',
+                              'stay',
+                              'transport',
+                              'activity',
+                              'shopping',
+                              'other',
+                            ]
+                            .map(
+                              (c) => DropdownMenuItem(
+                                value: c,
+                                child: Text(
+                                  c[0].toUpperCase() + c.substring(1),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (v) => setState(() => _category = v!),
+                  ),
+                  const SizedBox(height: 28),
+                  Text(
+                    'How should we split it?',
+                    style: AppTypography.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'equal', label: Text('Equally')),
+                      ButtonSegment(value: 'exact', label: Text('Exact')),
+                      ButtonSegment(
+                        value: 'percentage',
+                        label: Text('Percent'),
+                      ),
+                    ],
+                    selected: {_method},
+                    onSelectionChanged: (v) => setState(() {
+                      _method = v.first;
+                      _error = null;
+                      for (final c in _values.values) {
+                        c.clear();
+                      }
+                    }),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_method == 'exact')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Enter anyone’s share. The rest is split equally among people marked Auto. Clear an entered share to make it automatic again.',
+                        style: AppTypography.bodySmall,
                       ),
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 18),
-
-              Text('Split', style: AppTypography.titleMedium.copyWith(fontSize: 13)),
-              const SizedBox(height: 8),
-              Row(
-                children: ['Equally', 'By %', 'Exact'].map((opt) {
-                  final isSelected = _splitMethod == opt;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: InkWell(
-                      onTap: () => setState(() => _splitMethod = opt),
-                      borderRadius: BorderRadius.circular(999),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.ink : AppColors.card,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: isSelected ? AppColors.ink : AppColors.line,
-                            width: 1.4,
+                  ...members.map(
+                    (m) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            key: ValueKey('include-${m.id}'),
+                            value: !_excluded.contains(m.id),
+                            onChanged: (v) => setState(() {
+                              if (v == true) {
+                                _excluded.remove(m.id);
+                              } else {
+                                _excluded.add(m.id);
+                                _values[m.id]?.clear();
+                              }
+                              _error = null;
+                            }),
                           ),
-                        ),
-                        child: Text(
-                          opt,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isSelected ? Colors.white : AppColors.inkSoft,
+                          Expanded(
+                            child: Text(
+                              m.displayName,
+                              style: AppTypography.bodyMedium,
+                            ),
                           ),
+                          if (_method != 'equal' && !_excluded.contains(m.id))
+                            SizedBox(
+                              width: 145,
+                              child: TextField(
+                                key: ValueKey('share-${m.id}'),
+                                onChanged: (_) => setState(() => _error = null),
+                                controller: _values.putIfAbsent(
+                                  m.id,
+                                  () => TextEditingController(),
+                                ),
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                decoration: InputDecoration(
+                                  floatingLabelBehavior: _method == 'exact'
+                                      ? FloatingLabelBehavior.always
+                                      : FloatingLabelBehavior.auto,
+                                  labelText: _method == 'percentage'
+                                      ? 'Share %'
+                                      : trip.baseCurrency,
+                                  hintText:
+                                      _method == 'exact' &&
+                                          automaticShares.containsKey(m.id)
+                                      ? decimalAmount(
+                                          automaticShares[m.id]!,
+                                          trip.baseCurrency,
+                                        )
+                                      : null,
+                                  hintStyle: TextStyle(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
+                                  ),
+                                  helperText: _method == 'exact'
+                                      ? ((_values[m.id]?.text.trim().isEmpty ??
+                                                true)
+                                            ? 'Auto'
+                                            : 'Entered')
+                                      : null,
+                                  suffixIcon:
+                                      _method == 'exact' &&
+                                          (_values[m.id]?.text.isNotEmpty ??
+                                              false)
+                                      ? IconButton(
+                                          tooltip:
+                                              'Auto-calculate ${m.displayName}’s share',
+                                          icon: const Icon(Icons.restart_alt),
+                                          onPressed: () => setState(() {
+                                            _values[m.id]?.clear();
+                                            _error = null;
+                                          }),
+                                        )
+                                      : null,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (splitError != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        splitError,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
                         ),
                       ),
                     ),
-                  );
-                }).toList(),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _busy || payer == null || splitError != null
+                        ? null
+                        : () => _save(trip, members, payer),
+                    child: Text(_busy ? 'Saving…' : 'Save expense'),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Saved on this device immediately. Shared with your crew when connected.',
+                    style: AppTypography.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 32),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _save,
-                  child: const Text('Save expense'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

@@ -1,0 +1,170 @@
+[
+  {
+    "text": "ars",
+    "left": 231,
+    "right": 260,
+    "top": 687,
+    "bottom": 707
+  },
+  {
+    "text": "Qty",
+    "left": 410,
+    "right": 454,
+    "top": 681,
+    "bottom": 710
+  },
+  {
+    "text": "Rate",
+    "left": 469,
+    "right": 519,
+    "top": 682,
+    "bottom": 705
+  },
+  {
+    "text": "Tax%",
+    "left": 532,
+    "right": 594,
+    "top": 680,
+    "bottom": 703
+  },
+  {
+    "text": "Amount",
+    "left": 602,
+    "right": 677,
+    "top": 675,
+    "bottom": 702
+  },
+  {
+    "text": ":HAWARMA",
+    "left": 255,
+    "right": 379,
+    "top": 719,
+    "bottom": 741
+  },
+  {
+    "text": "1",
+    "left": 442,
+    "right": 460,
+    "top": 719,
+    "bottom": 741
+  },
+  {
+    "text": "610 18.0",
+    "left": 488,
+    "right": 578,
+    "top": 713,
+    "bottom": 742
+  },
+  {
+    "text": "610.00",
+    "left": 607,
+    "right": 677,
+    "top": 708,
+    "bottom": 737
+  },
+  {
+    "text": "EL' RICE",
+    "left": 249,
+    "right": 328,
+    "top": 750,
+    "bottom": 776
+  },
+  {
+    "text": "1",
+    "left": 442,
+    "right": 460,
+    "top": 752,
+    "bottom": 774
+  },
+  {
+    "text": "345 18.0",
+    "left": 487,
+    "right": 577,
+    "top": 747,
+    "bottom": 775
+  },
+  {
+    "text": "345.00",
+    "left": 606,
+    "right": 676,
+    "top": 741,
+    "bottom": 769
+  },
+  {
+    "text": "955.00",
+    "left": 605,
+    "right": 674,
+    "top": 777,
+    "bottom": 807
+  },
+  {
+    "text": "Total",
+    "left": 311,
+    "right": 374,
+    "top": 791,
+    "bottom": 818
+  },
+  {
+    "text": "2",
+    "left": 439,
+    "right": 461,
+    "top": 792,
+    "bottom": 818
+  },
+  {
+    "text": "CGST",
+    "left": 503,
+    "right": 558,
+    "top": 816,
+    "bottom": 844
+  },
+  {
+    "text": "85.95",
+    "left": 613,
+    "right": 670,
+    "top": 808,
+    "bottom": 835
+  },
+  {
+    "text": "SGST",
+    "left": 503,
+    "right": 556,
+    "top": 846,
+    "bottom": 873
+  },
+  {
+    "text": "85.95",
+    "left": 612,
+    "right": 668,
+    "top": 839,
+    "bottom": 866
+  },
+  {
+    "text": "0.10",
+    "left": 620,
+    "right": 667,
+    "top": 868,
+    "bottom": 894
+  },
+  {
+    "text": "R.0.(+/-2",
+    "left": 464,
+    "right": 556,
+    "top": 878,
+    "bottom": 908
+  },
+  {
+    "text": "1127.00",
+    "left": 569,
+    "right": 664,
+    "top": 899,
+    "bottom": 930
+  },
+  {
+    "text": "Grand Total",
+    "left": 369,
+    "right": 496,
+    "top": 913,
+    "bottom": 945
+  }
+]

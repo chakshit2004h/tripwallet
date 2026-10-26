@@ -1,25 +1,28 @@
 import 'package:flutter/material.dart';
+import '../../../core/domain/money.dart';
 import '../../../core/payment/payment_launcher.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import 'payment_handoff_screen.dart';
 
 class SettleSheet extends StatefulWidget {
-  final String tripId;
-  final String fromMemberId;
-  final String toMemberId;
-  final String payeeName;
-  final String payeeVpa;
+  final String tripId,
+      fromMemberId,
+      toMemberId,
+      payeeName,
+      payeeVpa,
+      currency,
+      tripName;
   final int amountMinor;
-
   const SettleSheet({
     super.key,
     required this.tripId,
     required this.fromMemberId,
     required this.toMemberId,
     required this.payeeName,
-    this.payeeVpa = 'amit@okaxis',
+    this.payeeVpa = '',
     required this.amountMinor,
+    this.currency = 'INR',
+    this.tripName = '',
   });
 
   static Future<bool?> show(
@@ -28,79 +31,64 @@ class SettleSheet extends StatefulWidget {
     required String fromMemberId,
     required String toMemberId,
     required String payeeName,
-    String payeeVpa = 'amit@okaxis',
+    String payeeVpa = '',
     required int amountMinor,
-  }) {
-    return showModalBottomSheet<bool>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => SettleSheet(
-        tripId: tripId,
-        fromMemberId: fromMemberId,
-        toMemberId: toMemberId,
-        payeeName: payeeName,
-        payeeVpa: payeeVpa,
-        amountMinor: amountMinor,
-      ),
-    );
-  }
+    String currency = 'INR',
+    String tripName = '',
+  }) => showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (_) => SettleSheet(
+      tripId: tripId,
+      fromMemberId: fromMemberId,
+      toMemberId: toMemberId,
+      payeeName: payeeName,
+      payeeVpa: payeeVpa,
+      amountMinor: amountMinor,
+      currency: currency,
+      tripName: tripName,
+    ),
+  );
 
   @override
   State<SettleSheet> createState() => _SettleSheetState();
 }
 
 class _SettleSheetState extends State<SettleSheet> {
-  String _selectedMethod = 'gpay';
+  final _form = GlobalKey<FormState>();
+  late final TextEditingController _vpa;
+  String _method = 'cash';
+  UpiApp _app = UpiApp.googlePay;
+  bool _proceeding = false;
+  bool get _upi => _method == 'online' && widget.currency == 'INR';
 
-  void _proceedToPayment() async {
-    Navigator.of(context).pop();
-
-    String launchUri = '';
-    String methodName = 'Payment App';
-
-    switch (_selectedMethod) {
-      case 'gpay':
-        methodName = 'Google Pay';
-        launchUri = PaymentLauncher.buildUpiUri(
-          payeeVpa: widget.payeeVpa,
-          payeeName: widget.payeeName,
-          amountMinor: widget.amountMinor,
-          note: 'TripWallet Settlement',
-        );
-        break;
-      case 'phonepe':
-        methodName = 'PhonePe';
-        launchUri = PaymentLauncher.buildUpiUri(
-          payeeVpa: widget.payeeVpa,
-          payeeName: widget.payeeName,
-          amountMinor: widget.amountMinor,
-          note: 'TripWallet Settlement',
-        );
-        break;
-      case 'paytm':
-        methodName = 'Paytm';
-        launchUri = PaymentLauncher.buildUpiUri(
-          payeeVpa: widget.payeeVpa,
-          payeeName: widget.payeeName,
-          amountMinor: widget.amountMinor,
-          note: 'TripWallet Settlement',
-        );
-        break;
-      case 'revolut':
-        methodName = 'Revolut';
-        launchUri = PaymentLauncher.buildRevolutUri(
-          username: widget.payeeName.toLowerCase().replaceAll(' ', ''),
-          amountMinor: widget.amountMinor,
-        );
-        break;
-      case 'cash':
-        methodName = 'Cash';
-        launchUri = '';
-        break;
+  @override
+  void initState() {
+    super.initState();
+    _vpa = TextEditingController(text: widget.payeeVpa.trim());
+    if (widget.currency == 'INR' && PaymentLauncher.validVpa(_vpa.text)) {
+      _method = 'online';
     }
+  }
 
-    await Navigator.of(context).push(
+  @override
+  void dispose() {
+    _vpa.dispose();
+    super.dispose();
+  }
+
+  Future<void> _proceed() async {
+    if (_proceeding || !_form.currentState!.validate()) return;
+    setState(() => _proceeding = true);
+    final uri = _upi
+        ? PaymentLauncher.buildUpiUri(
+            payeeVpa: _vpa.text.trim(),
+            payeeName: widget.payeeName,
+            amountMinor: widget.amountMinor,
+          )
+        : '';
+    final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PaymentHandoffScreen(
           tripId: widget.tripId,
@@ -108,231 +96,117 @@ class _SettleSheetState extends State<SettleSheet> {
           toMemberId: widget.toMemberId,
           payeeName: widget.payeeName,
           amountMinor: widget.amountMinor,
-          paymentMethod: methodName,
-          launchUri: launchUri,
+          paymentMethod: _upi ? 'upi' : (_method == 'online' ? 'bank' : 'cash'),
+          launchUri: uri,
+          currency: widget.currency,
+          tripName: widget.tripName,
+          app: _app,
         ),
       ),
     );
+    if (!mounted) return;
+    if (result == true) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() => _proceeding = false);
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final amountFormatted = (widget.amountMinor / 100).toStringAsFixed(2);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-      decoration: const BoxDecoration(
-        color: AppColors.paper,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(top: BorderSide(color: AppColors.line, width: 1)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.line,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Text('Settle Up', style: AppTypography.titleMedium),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.close, color: AppColors.creamSoft, size: 20),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
+  Widget build(BuildContext context) => SingleChildScrollView(
+    padding: EdgeInsets.fromLTRB(
+      24,
+      24,
+      24,
+      24 + MediaQuery.viewInsetsOf(context).bottom,
+    ),
+    child: Form(
+      key: _form,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Settle with ${widget.payeeName}',
+            style: AppTypography.titleLarge,
           ),
           const SizedBox(height: 12),
-
-          // Payee & Amount Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.line),
-            ),
-            child: Row(
+          Text(
+            formatMoney(widget.amountMinor, widget.currency),
+            style: AppTypography.display,
+          ),
+          const SizedBox(height: 24),
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'cash',
+                icon: Icon(Icons.payments_outlined),
+                label: Text('Cash'),
+              ),
+              ButtonSegment(
+                value: 'online',
+                icon: Icon(Icons.account_balance_outlined),
+                label: Text('Online'),
+              ),
+            ],
+            selected: {_method},
+            onSelectionChanged: _proceeding
+                ? null
+                : (value) => setState(() => _method = value.single),
+          ),
+          const SizedBox(height: 20),
+          if (_upi) ...[
+            Text('Choose your payment app', style: AppTypography.titleMedium),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: AppColors.coral.withOpacity(0.2),
-                  child: Text(
-                    widget.payeeName.isNotEmpty ? widget.payeeName[0] : '?',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.coral, fontSize: 18),
+                for (final app in UpiApp.values)
+                  ChoiceChip(
+                    label: Text(app.label),
+                    selected: _app == app,
+                    onSelected: _proceeding
+                        ? null
+                        : (_) => setState(() => _app = app),
                   ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Paying ${widget.payeeName}', style: AppTypography.titleMedium),
-                      const SizedBox(height: 3),
-                      Text('UPI: ${widget.payeeVpa}', style: AppTypography.caption.copyWith(color: AppColors.creamSoft)),
-                    ],
-                  ),
-                ),
-                Text(
-                  '₹$amountFormatted',
-                  style: AppTypography.titleLarge.copyWith(color: AppColors.coral, fontSize: 20),
-                ),
               ],
             ),
-          ),
-
-          const SizedBox(height: 20),
-          Text('SELECT PAYMENT RAIL', style: AppTypography.caption.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1)),
-          const SizedBox(height: 10),
-
-          // Payment rails list
-          _buildMethodTile(
-            id: 'gpay',
-            title: 'Google Pay',
-            subtitle: 'Direct UPI intent via GPay app',
-            icon: Icons.bolt_rounded,
-            badge: 'RECOMMENDED',
-            iconColor: AppColors.yellow,
-          ),
-          _buildMethodTile(
-            id: 'phonepe',
-            title: 'PhonePe',
-            subtitle: 'Direct UPI intent via PhonePe',
-            icon: Icons.account_balance_wallet_rounded,
-            iconColor: const Color(0xFF5F259F),
-          ),
-          _buildMethodTile(
-            id: 'paytm',
-            title: 'Paytm UPI',
-            subtitle: 'Direct UPI intent via Paytm',
-            icon: Icons.payments_rounded,
-            iconColor: const Color(0xFF00B9F1),
-          ),
-          _buildMethodTile(
-            id: 'revolut',
-            title: 'Revolut.me',
-            subtitle: 'Instant link for EUR / GBP accounts',
-            icon: Icons.public_rounded,
-            iconColor: AppColors.teal,
-          ),
-          _buildMethodTile(
-            id: 'cash',
-            title: 'Cash / Settled Directly',
-            subtitle: 'Record payment without digital transfer',
-            icon: Icons.money_rounded,
-            iconColor: AppColors.green,
-          ),
-
-          const SizedBox(height: 20),
-
-          // Primary CTA
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: _proceedToPayment,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.coral,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            const SizedBox(height: 20),
+            TextFormField(
+              controller: _vpa,
+              autocorrect: false,
+              enableSuggestions: false,
+              readOnly: _proceeding,
+              maxLength: 321,
+              decoration: InputDecoration(
+                labelText: "${widget.payeeName}'s UPI ID",
+                hintText: 'name@bank',
+                helperText: "Enter the recipient’s ID, not your own.",
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Pay ₹$amountFormatted Now', style: AppTypography.button),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_rounded, size: 20),
-                ],
-              ),
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (value) =>
+                  PaymentLauncher.validVpa((value ?? '').trim())
+                  ? null
+                  : 'Enter a valid recipient UPI ID, such as name@bank.',
             ),
+            const SizedBox(height: 8),
+            const Text(
+              'Check the bank account name in your payment app before paying.',
+            ),
+          ] else
+            Text(
+              _method == 'cash'
+                  ? 'Record cash you have handed over.'
+                  : 'Pay your friend in ${widget.currency} using your bank or payment app, then record it here.',
+            ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _proceeding || widget.amountMinor <= 0 ? null : _proceed,
+            child: const Text('Review payment'),
           ),
         ],
       ),
     ),
   );
-}
-
-  Widget _buildMethodTile({
-    required String id,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
-    String? badge,
-  }) {
-    final isSelected = _selectedMethod == id;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedMethod = id),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.coral.withOpacity(0.08) : AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.coral : AppColors.line,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(title, style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold)),
-                      if (badge != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.coral,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            badge,
-                            style: AppTypography.caption.copyWith(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  Text(subtitle, style: AppTypography.caption),
-                ],
-              ),
-            ),
-            Radio<String>(
-              value: id,
-              groupValue: _selectedMethod,
-              activeColor: AppColors.coral,
-              onChanged: (val) {
-                if (val != null) setState(() => _selectedMethod = val);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

@@ -4,6 +4,7 @@ class ClaimAllocation {
   final int taxMinor;
   final int serviceChargeMinor;
   final int totalMinor;
+  final int adjustmentMinor;
 
   const ClaimAllocation({
     required this.memberId,
@@ -11,6 +12,7 @@ class ClaimAllocation {
     required this.taxMinor,
     required this.serviceChargeMinor,
     required this.totalMinor,
+    this.adjustmentMinor = 0,
   });
 
   @override
@@ -26,7 +28,15 @@ Map<String, ClaimAllocation> prorateReceipt({
   required int totalTaxMinor,
   required int totalServiceChargeMinor,
 }) {
-  final grandSubtotal = memberSubtotals.values.fold<int>(0, (sum, val) => sum + val);
+  final grandSubtotal = memberSubtotals.values.fold<int>(
+    0,
+    (sum, val) => sum + val,
+  );
+  if (totalTaxMinor < 0 ||
+      totalServiceChargeMinor < 0 ||
+      memberSubtotals.values.any((v) => v < 0)) {
+    throw ArgumentError('Amounts cannot be negative');
+  }
   final result = <String, ClaimAllocation>{};
 
   if (grandSubtotal <= 0) {
@@ -57,6 +67,16 @@ Map<String, ClaimAllocation> prorateReceipt({
   final residueTax = totalTaxMinor - allocatedTax;
   final residueService = totalServiceChargeMinor - allocatedService;
 
+  result.putIfAbsent(
+    payerId,
+    () => ClaimAllocation(
+      memberId: payerId,
+      subtotalMinor: 0,
+      taxMinor: 0,
+      serviceChargeMinor: 0,
+      totalMinor: 0,
+    ),
+  );
   if (result.containsKey(payerId)) {
     final prev = result[payerId]!;
     result[payerId] = ClaimAllocation(

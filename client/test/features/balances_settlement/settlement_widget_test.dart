@@ -6,8 +6,10 @@ import 'package:tripwallet_client/features/balances_settlement/presentation/sett
 import 'package:tripwallet_client/features/balances_settlement/presentation/settlement_confirm_dialog.dart';
 
 void main() {
-  group('Phase 4 Balances & Settlement Widget Tests', () {
-    testWidgets('SettleSheet displays payee, amount, and payment methods', (tester) async {
+  group('Balances and settlement', () {
+    testWidgets('SettleSheet displays payee, amount, and payment methods', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -36,15 +38,16 @@ void main() {
       await tester.tap(find.text('Open Settle'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Settle Up'), findsOneWidget);
-      expect(find.text('Paying Amit'), findsOneWidget);
+      expect(find.text('Settle with Amit'), findsOneWidget);
       expect(find.text('₹850.00'), findsOneWidget);
-      expect(find.text('Google Pay'), findsOneWidget);
-      expect(find.text('PhonePe'), findsOneWidget);
-      expect(find.text('Cash / Settled Directly'), findsOneWidget);
+      expect(find.text('Cash'), findsOneWidget);
+      expect(find.text('Online'), findsOneWidget);
+      expect(find.text('Record cash you have handed over.'), findsOneWidget);
     });
 
-    testWidgets('SettlementConfirmDialog displays confirmation prompt', (tester) async {
+    testWidgets('SettlementConfirmDialog displays confirmation prompt', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
@@ -63,9 +66,9 @@ void main() {
         ),
       );
 
-      expect(find.text('Did the payment go through?'), findsOneWidget);
+      expect(find.text('Record this payment?'), findsOneWidget);
       expect(find.text('Not yet'), findsOneWidget);
-      expect(find.text('Yes, settled'), findsOneWidget);
+      expect(find.text('Yes, record payment'), findsOneWidget);
     });
   });
 }

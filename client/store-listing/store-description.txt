@@ -1,0 +1,33 @@
+APP NAME
+TripWallet
+
+SHORT DESCRIPTION
+Track trip expenses, split costs with friends, and keep balances clear.
+
+FULL DESCRIPTION
+Enjoy the trip. Keep shared expenses organised with TripWallet.
+
+Whether you are planning a weekend away or travelling with friends, TripWallet helps your group track spending, split costs and see who owes whom.
+
+KEEP EVERY TRIP TOGETHER
+Create separate trips and invite your friends using a trip code or QR code. Keep each trip’s expenses, members and activity in one place.
+
+ADD EXPENSES YOUR WAY
+Enter expenses manually or scan a receipt and review the recognised details before saving. Record who paid and who shares each expense.
+
+SPLIT COSTS CLEARLY
+Split equally or enter exact amounts for individual members. When you enter some members’ shares, TripWallet can divide the remaining amount among the others.
+
+SEE BALANCES AND RECORD SETTLEMENTS
+Check what each person owes and record settlements. For INR payments, open a supported external UPI app with the recipient’s UPI ID and amount filled in. Always review the recipient and amount before paying. TripWallet does not process payments or independently confirm payment success.
+
+FOLLOW YOUR GROUP’S ACTIVITY
+View updates organised by trip and keep track of shared expenses as your plans unfold. Shared records sync when an internet connection is available.
+
+PLAN AND EXPORT
+Keep itinerary details with your trip and export expense records when you need a copy.
+
+MANAGE YOUR ACCOUNT
+Manage your profile and optional UPI ID, and request account deletion from within the app. Shared financial history may remain under “Deleted account” to preserve other members’ balances.
+
+An account is required. An internet connection is needed for account verification and syncing shared trip data. Camera access is used when you choose to scan a receipt or a trip QR code. Receipt recognition can make mistakes, so review scanned details before saving. External payment apps must be installed to use their payment handoff.
